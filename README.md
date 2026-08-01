@@ -131,3 +131,9 @@ Check the **Status Dashboard** at the top of the page to verify that the IPs wer
 - **Error: Gateway not found**: Ensure you have selected the correct Site ID in the dropdown. The gateway must be adopted in the selected site.
 - **Error: Configuration is missing required fields**: Make sure you have clicked "Save Configuration" before attempting a run.
 - **Forgotten Web UI Password**: SSH into your server, manually edit the `updater.conf`, and clear the `WEB_USERNAME` and `WEB_PASSWORD` lines, and restart the servicedocker container.
+
+---
+
+## Disclaimer
+
+**Please Note:** This is an LLM-generated project intended strictly for private/hobby use. It is provided "as is" without any warranties, guarantees, or official support. Please review the code and use it at your own risk before deploying it in any critical or production environments.
