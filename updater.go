@@ -290,6 +290,15 @@ func runUpdate(force bool) error {
 	globalState.LastIPv4 = ipv4
 	globalState.LastIPv6 = ipv6
 
+	if !config.UpdateIPv4 {
+		ipv4 = ""
+		ipv4Changed = false
+	}
+	if !config.UpdateIPv6 {
+		ipv6 = ""
+		ipv6Changed = false
+	}
+
 	var warnings []string
 
 	if ipv4 != "" {
@@ -309,6 +318,12 @@ func runUpdate(force bool) error {
 	}
 
 	if ipv4 == "" && ipv6 == "" {
+		if !config.UpdateIPv4 && !config.UpdateIPv6 {
+			globalState.LastStatus = "Skipped"
+			globalState.LastError = ""
+			globalState.LastWarning = "Both IPv4 and IPv6 updates are disabled in configuration."
+			return nil
+		}
 		globalState.LastStatus = "Error"
 		if len(warnings) > 0 {
 			globalState.LastError = "No valid public IPs: " + strings.Join(warnings, ", ")

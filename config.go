@@ -16,6 +16,8 @@ type Config struct {
 	OmadaSiteID       string
 	DuckDNSToken      string
 	DuckDNSDomain     string
+	UpdateIPv4        bool
+	UpdateIPv6        bool
 	UpdateInterval    int
 	WebUsername       string
 	WebPassword       string
@@ -24,7 +26,8 @@ type Config struct {
 const configFilePath = "updater.conf"
 
 func loadConfig() (*Config, error) {
-	config := &Config{UpdateInterval: 5}
+	// Default to updating IPv4 only
+	config := &Config{UpdateInterval: 5, UpdateIPv4: true, UpdateIPv6: false}
 	file, err := os.Open(configFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -61,6 +64,14 @@ func loadConfig() (*Config, error) {
 			config.DuckDNSToken = deobfuscateToken(val)
 		case "DUCKDNS_DOMAIN":
 			config.DuckDNSDomain = val
+		case "UPDATE_IPV4":
+			if b, err := strconv.ParseBool(val); err == nil {
+				config.UpdateIPv4 = b
+			}
+		case "UPDATE_IPV6":
+			if b, err := strconv.ParseBool(val); err == nil {
+				config.UpdateIPv6 = b
+			}
 		case "UPDATE_INTERVAL":
 			if i, err := strconv.Atoi(val); err == nil && i > 0 {
 				config.UpdateInterval = i
@@ -89,6 +100,8 @@ func saveConfig(config *Config) error {
 	fmt.Fprintf(writer, "OMADA_SITE_ID=%s\n", config.OmadaSiteID)
 	fmt.Fprintf(writer, "DUCKDNS_TOKEN=%s\n", obfuscateToken(config.DuckDNSToken))
 	fmt.Fprintf(writer, "DUCKDNS_DOMAIN=%s\n", config.DuckDNSDomain)
+	fmt.Fprintf(writer, "UPDATE_IPV4=%t\n", config.UpdateIPv4)
+	fmt.Fprintf(writer, "UPDATE_IPV6=%t\n", config.UpdateIPv6)
 	if config.UpdateInterval <= 0 {
 		config.UpdateInterval = 5
 	}

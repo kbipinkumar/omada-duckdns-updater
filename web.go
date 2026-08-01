@@ -351,6 +351,18 @@ const uiTemplate = `
                     <input type="text" name="DuckDNSDomain4" value="{{index $domains 3}}" placeholder="example4.duckdns.org (Optional)" style="margin-bottom: 0.5rem;">
                     <input type="text" name="DuckDNSDomain5" value="{{index $domains 4}}" placeholder="example5.duckdns.org (Optional)">
                 </div>
+
+                <div class="form-group">
+                    <label>IP Protocols to Update</label>
+                    <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="UpdateIPv4" {{if .Config.UpdateIPv4}}checked{{end}} style="width: auto; margin: 0;"> Update IPv4
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="UpdateIPv6" {{if .Config.UpdateIPv6}}checked{{end}} style="width: auto; margin: 0;"> Update IPv6
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <div class="form-section">
@@ -555,6 +567,8 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 		OmadaSiteID:       r.FormValue("OmadaSiteID"),
 		DuckDNSToken:      r.FormValue("DuckDNSToken"),
 		DuckDNSDomain:     duckDNSDomain,
+		UpdateIPv4:        r.FormValue("UpdateIPv4") == "on",
+		UpdateIPv6:        r.FormValue("UpdateIPv6") == "on",
 		UpdateInterval:    interval,
 		WebUsername:       r.FormValue("WebUsername"),
 		WebPassword:       finalWebPassword,
