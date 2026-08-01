@@ -1,0 +1,13 @@
+# Go binaries
+omada-duckdns-updater
+ddns-updater
+
+# Configuration files with sensitive data
+updater.conf
+
+# Debian package build artifacts
+build_deb/
+*.deb
+
+# OS specific files
+.DS_Store

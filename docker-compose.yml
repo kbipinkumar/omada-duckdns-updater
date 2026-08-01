@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  omada-duckdns-updater:
+    build: .
+    container_name: omada-duckdns-updater
+    ports:
+      - "5381:5381"
+    volumes:
+      # Persist configuration file across container rebuilds/restarts
+      - ./updater.conf:/app/updater.conf
+    restart: unless-stopped

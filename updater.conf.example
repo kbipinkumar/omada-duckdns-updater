@@ -1,0 +1,25 @@
+# Omada SDN Controller URL (e.g., https://192.168.1.1:8043)
+OMADA_URL=https://<your-omada-controller-ip>:<port>
+
+# Omada API Credentials (created in Omada Settings -> Global -> API)
+OMADA_CLIENT_ID=your-omada-client-id
+OMADA_CLIENT_SECRET=your-omada-client-secret
+
+# Omada Cloud ID (used if your controller is linked to TP-Link Cloud, otherwise leave blank or refer to docs)
+OMADA_OMADAC_ID=your-omadac-id
+
+# Your Omada Site ID (can be fetched automatically from the Web UI)
+OMADA_SITE_ID=your-site-id
+
+# DuckDNS Configuration
+DUCKDNS_TOKEN=your-duckdns-token
+DUCKDNS_DOMAIN=yourdomain1.duckdns.org,yourdomain2.duckdns.org
+
+# How often the updater checks for IP changes (in minutes)
+UPDATE_INTERVAL=5
+
+# Web UI Basic Authentication (Optional)
+# If set, the Web UI will require these credentials to access the dashboard.
+# Note: When saved via the Web UI, the password will be securely hashed, and tokens will be obfuscated.
+WEB_USERNAME=admin
+WEB_PASSWORD=your-secure-password
