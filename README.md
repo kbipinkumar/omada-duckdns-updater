@@ -86,26 +86,42 @@ A `PKGBUILD` is provided to seamlessly integrate with Arch Linux.
    ```
    *(**Important Note for Headless Environments**: If you are running this on a headless server without a persistent desktop session, the user systemd manager will shut down when you terminate your SSH session. To keep the service running continuously in the background, you MUST run: `loginctl enable-linger $USER`)*
 
-### Method 4: Docker Automation
+### Method 4: Docker (GitHub Container Registry)
 
-We provide a wrapper script that automatically tags your Docker image with the correct Git version.
+Pre-built Docker images are automatically published to the GitHub Container Registry for both `amd64` and `arm64` architectures.
 
-1. **Build the Image:**
+1. **Run using Docker Compose (Recommended):**
+   A `docker-compose.yml` file is included in the repository.
    ```bash
-   ./build-docker.sh
+   docker compose up -d
    ```
+   *(This will automatically pull the latest image from GHCR and mount `updater.conf` as a volume to ensure your configuration persists).*
 
-2. **Run the Container:**
+2. **Run using Docker CLI:**
    ```bash
    docker run -d \
      --name omada-ddns \
      -p 5381:5381 \
-     -v $(pwd)/updater.conf:/app/updater.conf \
-     omada-duckdns-updater:latest
+     -e DATA_DIR=/data \
+     -v omada-data:/data \
+     ghcr.io/kbipinkumar/omada-duckdns-updater:latest
    ```
-   *(We mount `updater.conf` as a volume to ensure your configuration persists).*
 
-Alternatively, a `docker-compose.yml` is included. You can simply run `docker compose up -d --build`.
+### Method 5: Docker (Local Development)
+
+If you are modifying the code and want to build the Docker image locally:
+
+1. **Using Docker Compose:**
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d --build
+   ```
+
+2. **Using the Build Wrapper:**
+   We also provide a wrapper script that automatically tags your locally built image with the correct Git version.
+   ```bash
+   ./build-docker.sh
+   docker run -d -p 5381:5381 -e DATA_DIR=/data -v omada-data:/data omada-duckdns-updater:latest
+   ```
 
 ---
 

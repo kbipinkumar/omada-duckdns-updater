@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   omada-duckdns-updater:
-    image: ghcr.io/kbipinkumar/omada-duckdns-updater:latest
+    build: .
     container_name: omada-duckdns-updater
     ports:
       - "5381:5381"

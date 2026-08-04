@@ -22,13 +22,18 @@ type Config struct {
 	WebUsername       string
 	WebPassword       string
 }
-
-const configFilePath = "updater.conf"
+func getConfigFilePath() string {
+	dir := os.Getenv("DATA_DIR")
+	if dir != "" {
+		return dir + "/updater.conf"
+	}
+	return "updater.conf"
+}
 
 func loadConfig() (*Config, error) {
 	// Default to updating IPv4 only
 	config := &Config{UpdateInterval: 5, UpdateIPv4: true, UpdateIPv6: false}
-	file, err := os.Open(configFilePath)
+	file, err := os.Open(getConfigFilePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return config, nil
@@ -86,7 +91,7 @@ func loadConfig() (*Config, error) {
 }
 
 func saveConfig(config *Config) error {
-	file, err := os.Create(configFilePath)
+	file, err := os.Create(getConfigFilePath())
 	if err != nil {
 		return err
 	}
