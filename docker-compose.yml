@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   omada-duckdns-updater:
     image: ghcr.io/kbipinkumar/omada-duckdns-updater:latest
