@@ -653,8 +653,11 @@ func startWebServer(ctx context.Context) {
 
 	port := "5381"
 	server := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {
