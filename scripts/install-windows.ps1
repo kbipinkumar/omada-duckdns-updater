@@ -10,9 +10,15 @@
 
 .PARAMETER SourceDir
   Directory containing omada-duckdns-updater.exe (defaults to this script's directory).
+
+.PARAMETER AllowPublicFirewall
+  Also apply the inbound TCP 5381 rule to the Public profile. Without this,
+  the rule defaults to Domain and Private only; an interactive prompt asks
+  before including Public when this switch is not set.
 #>
 param(
-    [string]$SourceDir = $PSScriptRoot
+    [string]$SourceDir = $PSScriptRoot,
+    [switch]$AllowPublicFirewall
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,10 +108,22 @@ if ($LASTEXITCODE -ne 0) {
 
 $rule = Get-NetFirewallRule -DisplayName $FirewallRule -ErrorAction SilentlyContinue
 if (-not $rule) {
-    Write-Host "Creating firewall rule for TCP 5381..."
+    $firewallProfiles = @("Domain", "Private")
+    $includePublic = $AllowPublicFirewall.IsPresent
+    if (-not $includePublic -and [Environment]::UserInteractive) {
+        $answer = Read-Host "Also allow inbound TCP 5381 on the Public network profile? [y/N]"
+        if ($answer -match '^(?i)y(es)?$') {
+            $includePublic = $true
+        }
+    }
+    if ($includePublic) {
+        $firewallProfiles += "Public"
+    }
+
+    Write-Host "Creating firewall rule for TCP 5381 (profiles: $($firewallProfiles -join ', '))..."
     New-NetFirewallRule -DisplayName $FirewallRule `
         -Direction Inbound -Protocol TCP -LocalPort 5381 `
-        -Action Allow -Profile Any | Out-Null
+        -Action Allow -Profile ($firewallProfiles -join ",") | Out-Null
 } else {
     Write-Host "Firewall rule already exists."
 }

@@ -134,7 +134,7 @@ Pre-built Windows zip archives are published on GitHub Releases (`omada-duckdns-
    Set-ExecutionPolicy -Scope Process Bypass
    .\install-windows.ps1
    ```
-   This copies the binary to `C:\Program Files\omada-duckdns-updater\`, creates `%ProgramData%\omada-duckdns-updater\` for config/logs, opens inbound TCP **5381**, and installs/starts the `OmadaDuckDNSUpdater` service.
+   This copies the binary to `C:\Program Files\omada-duckdns-updater\`, creates `%ProgramData%\omada-duckdns-updater\` for config/logs, opens inbound TCP **5381** on Domain/Private (Public only if confirmed or `-AllowPublicFirewall`), and installs/starts the `OmadaDuckDNSUpdater` service.
 3. **Uninstall:**
    ```powershell
    .\uninstall-windows.ps1
@@ -157,7 +157,7 @@ Pre-built Windows zip archives are published on GitHub Releases (`omada-duckdns-
    - Config: `%ProgramData%\omada-duckdns-updater\updater.conf`
    - Log file: `%ProgramData%\omada-duckdns-updater\updater.log`
    - Event Log source: `OmadaDuckDNSUpdater`
-7. **Firewall:** the installer adds an inbound allow rule for TCP 5381. For a custom setup, allow that port so the Web UI is reachable.
+7. **Firewall:** the installer adds an inbound allow rule for TCP 5381 on the **Domain** and **Private** profiles. Include Public only via the interactive prompt or `-AllowPublicFirewall`. For a custom setup, allow that port so the Web UI is reachable.
 8. **Docker Desktop on Windows:** use the existing Linux GHCR image (Linux containers / WSL2) with the same `docker compose` / `docker run` commands as on Linux. There is no separate Windows container image.
 
 To cross-compile a Windows zip from a Linux/macOS machine:
