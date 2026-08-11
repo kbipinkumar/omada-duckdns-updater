@@ -25,6 +25,42 @@ $SourceExe = Join-Path $SourceDir $ExeName
 $DestExe = Join-Path $InstallDir $ExeName
 $FirewallRule = "Omada DuckDNS Updater Web UI"
 
+function Wait-ServiceStatusStopped {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [int]$TimeoutSeconds = 30
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+        if (-not $svc -or $svc.Status -eq "Stopped") {
+            return
+        }
+        Start-Sleep -Milliseconds 300
+    }
+    $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+    if ($svc -and $svc.Status -ne "Stopped") {
+        Write-Error "Timed out waiting for service '$Name' to reach Stopped (status: $($svc.Status))."
+    }
+}
+
+function Wait-ServiceRemoved {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [int]$TimeoutSeconds = 15
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-Service -Name $Name -ErrorAction SilentlyContinue)) {
+            return
+        }
+        Start-Sleep -Milliseconds 300
+    }
+    if (Get-Service -Name $Name -ErrorAction SilentlyContinue) {
+        Write-Error "Service '$Name' still exists after uninstall/delete."
+    }
+}
+
 if (-not (Test-Path -LiteralPath $SourceExe)) {
     Write-Error "Executable not found: $SourceExe"
 }
@@ -36,22 +72,23 @@ New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
     if (Test-Path -LiteralPath $DestExe) {
-        if ($existing.Status -eq "Running") {
+        if ($existing.Status -ne "Stopped") {
             Write-Host "Stopping existing service..."
             & $DestExe -service stop
         }
+        Wait-ServiceStatusStopped -Name $ServiceName
         Write-Host "Removing existing service registration..."
         & $DestExe -service uninstall
     } else {
-        if ($existing.Status -eq "Running") {
+        if ($existing.Status -ne "Stopped") {
             Write-Host "Stopping existing service via sc.exe..."
             sc.exe stop $ServiceName | Out-Null
-            Start-Sleep -Seconds 2
         }
+        Wait-ServiceStatusStopped -Name $ServiceName
         Write-Host "Removing existing service via sc.exe..."
         sc.exe delete $ServiceName | Out-Null
-        Start-Sleep -Seconds 1
     }
+    Wait-ServiceRemoved -Name $ServiceName
 }
 
 Write-Host "Installing to $InstallDir ..."
