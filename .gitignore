@@ -9,5 +9,10 @@ updater.conf
 build_deb/
 *.deb
 
+# Windows build artifacts
+dist/
+*_windows_*.zip
+*.exe
+
 # OS specific files
 .DS_Store
