@@ -29,21 +29,33 @@ if (-not (Test-Path -LiteralPath $SourceExe)) {
     Write-Error "Executable not found: $SourceExe"
 }
 
-Write-Host "Installing to $InstallDir ..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
-Copy-Item -LiteralPath $SourceExe -Destination $DestExe -Force
 
-# Stop existing service if present so the binary can be replaced
+# Stop/remove existing service before replacing the binary (Windows locks running exes)
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
-    if ($existing.Status -eq "Running") {
-        Write-Host "Stopping existing service..."
-        & $DestExe -service stop
+    if (Test-Path -LiteralPath $DestExe) {
+        if ($existing.Status -eq "Running") {
+            Write-Host "Stopping existing service..."
+            & $DestExe -service stop
+        }
+        Write-Host "Removing existing service registration..."
+        & $DestExe -service uninstall
+    } else {
+        if ($existing.Status -eq "Running") {
+            Write-Host "Stopping existing service via sc.exe..."
+            sc.exe stop $ServiceName | Out-Null
+            Start-Sleep -Seconds 2
+        }
+        Write-Host "Removing existing service via sc.exe..."
+        sc.exe delete $ServiceName | Out-Null
+        Start-Sleep -Seconds 1
     }
-    Write-Host "Removing existing service registration..."
-    & $DestExe -service uninstall
 }
+
+Write-Host "Installing to $InstallDir ..."
+Copy-Item -LiteralPath $SourceExe -Destination $DestExe -Force
 
 Write-Host "Registering Windows Service..."
 & $DestExe -service install
