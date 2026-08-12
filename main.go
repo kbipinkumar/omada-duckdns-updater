@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// version is injected at build time via -ldflags.
 var version = "dev"
 
 func main() {

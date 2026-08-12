@@ -18,3 +18,13 @@ When generating git commit messages for this repository, you MUST adhere to the 
 - `feat: add dual stack support to duckdns client`
 - `fix: resolve 403 error in github actions release workflow`
 - `docs: add arch linux installation instructions to readme`
+
+# Go Code Change Guidelines
+When adding or modifying Go source files in this repository, you MUST:
+
+1. Add or update Go doc comments for every new or changed symbol (types, functions, methods, variables, constants, and test functions).
+2. Follow Go doc comment conventions: comment immediately above the declaration, start with the symbol name, use complete sentences.
+3. Update `doc.go` when package-level behavior or scope changes materially.
+4. Run `go test ./...` and `go vet ./...` before finishing.
+
+See `agents.md` → **Go Doc Comments (Required for Code Changes)** for detailed examples and checklist.
