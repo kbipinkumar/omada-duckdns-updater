@@ -108,10 +108,10 @@ Pre-built Docker images are automatically published to the GitHub Container Regi
    | `DUCKDNS_TOKEN` | Overrides the DuckDNS token from `updater.conf` at runtime |
    | `WEB_PASSWORD` | Overrides the Web UI password at runtime (plaintext in env only; never written to `updater.conf`) |
 
-   Copy `.env.example` to `.env`, uncomment and set the values you need, then start the stack:
+   Copy `example.env` to `.env`, replace the placeholder values, then start the stack:
 
    ```bash
-   cp .env.example .env
+   cp example.env .env
    # edit .env with your secrets
    docker compose up -d
    ```
@@ -137,7 +137,7 @@ If you are modifying the code and want to build the Docker image locally:
 
 1. **Using Docker Compose:**
    ```bash
-   cp .env.example .env   # optional: add secret overrides
+   cp example.env .env   # optional: add secret overrides
    docker compose -f docker-compose.dev.yml up -d --build
    ```
 
