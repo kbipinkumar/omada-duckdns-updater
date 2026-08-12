@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestLoadSaveConfig verifies config round-tripping and encrypted secret storage.
+// TestLoadSaveConfig verifies config round-tripping and obfuscated secret storage.
 func TestLoadSaveConfig(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("DATA_DIR", dir)
