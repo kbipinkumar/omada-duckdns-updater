@@ -88,6 +88,7 @@ func loadConfig() (*Config, error) {
 	}
 	defer file.Close()
 
+	needsMigration := false
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -106,13 +107,21 @@ func loadConfig() (*Config, error) {
 		case "OMADA_CLIENT_ID":
 			config.OmadaClientID = val
 		case "OMADA_CLIENT_SECRET":
-			config.OmadaClientSecret = deobfuscateToken(val)
+			plain, usedLegacy := decryptToken(val)
+			config.OmadaClientSecret = plain
+			if usedLegacy || (!strings.HasPrefix(val, "ENC:") && val != "") {
+				needsMigration = true
+			}
 		case "OMADA_OMADAC_ID":
 			config.OmadaOmadacID = val
 		case "OMADA_SITE_ID":
 			config.OmadaSiteID = val
 		case "DUCKDNS_TOKEN":
-			config.DuckDNSToken = deobfuscateToken(val)
+			plain, usedLegacy := decryptToken(val)
+			config.DuckDNSToken = plain
+			if usedLegacy || (!strings.HasPrefix(val, "ENC:") && val != "") {
+				needsMigration = true
+			}
 		case "DUCKDNS_DOMAIN":
 			config.DuckDNSDomain = val
 		case "UPDATE_IPV4":
@@ -133,7 +142,44 @@ func loadConfig() (*Config, error) {
 			config.WebPassword = val
 		}
 	}
-	return config, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	applyEnvOverrides(config)
+
+	if needsMigration {
+		if err := saveConfig(config); err != nil {
+			return config, err
+		}
+	}
+	return config, nil
+}
+
+// applyEnvOverrides replaces API token secrets with environment variables when set.
+func applyEnvOverrides(config *Config) {
+	if v := os.Getenv("OMADA_CLIENT_SECRET"); v != "" {
+		config.OmadaClientSecret = v
+	}
+	if v := os.Getenv("DUCKDNS_TOKEN"); v != "" {
+		config.DuckDNSToken = v
+	}
+}
+
+// webPasswordForAuth returns the password used for Basic Auth checks.
+func webPasswordForAuth(config *Config) string {
+	if v := os.Getenv("WEB_PASSWORD"); v != "" {
+		return v
+	}
+	return config.WebPassword
+}
+
+// verifyWebPassword checks the supplied password against stored or env-provided credentials.
+func verifyWebPassword(password, stored string) bool {
+	if v := os.Getenv("WEB_PASSWORD"); v != "" {
+		return password == v
+	}
+	return checkPassword(password, stored)
 }
 
 // saveConfig writes config to updater.conf, obfuscating sensitive token values.
@@ -163,7 +209,10 @@ func saveConfig(config *Config) error {
 	fmt.Fprintf(writer, "UPDATE_INTERVAL=%d\n", config.UpdateInterval)
 	fmt.Fprintf(writer, "WEB_USERNAME=%s\n", config.WebUsername)
 	fmt.Fprintf(writer, "WEB_PASSWORD=%s\n", config.WebPassword)
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	return os.Chmod(getConfigFilePath(), 0600)
 }
 
 // DuckDNSDomains returns up to five configured DuckDNS domain names for the UI.

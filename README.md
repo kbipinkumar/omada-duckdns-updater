@@ -7,7 +7,7 @@ It features a beautiful, built-in Web UI for easy configuration and a live statu
 ## Features
 - 🚀 **Zero Runtime Dependencies**: Single Go binary (stdlib + minimal Windows service support via `golang.org/x/sys`).
 - 📊 **Live Dashboard**: View the last run time, success/error status, and fetched IPs directly from the UI.
-- 🔒 **Basic Authentication**: Secure your Web UI with optional username and password protection.
+- 🔒 **Basic Authentication**: Secure your Web UI with optional username and password protection (bcrypt-hashed at rest).
 - ⏱️ **Dynamic Scheduling**: Update intervals are fully configurable from the Web UI—no need to restart the application.
 - 🌐 **Dual Stack**: Supports updating both IPv4 and IPv6 addresses simultaneously.
 - 🔍 **Site Auto-Discovery**: Automatically fetches and lists your available Omada sites to prevent misconfiguration.
@@ -184,6 +184,26 @@ Once the service is running, open your web browser and navigate to:
 6. **Run:** Click **Run Now** to force an immediate DuckDNS update (or wait for the scheduled interval).
 
 Check the **Status Dashboard** at the top of the page to verify that the IPs were fetched and DuckDNS was updated successfully!
+
+---
+
+## Security Notes
+
+- **Web UI passwords** are stored as bcrypt hashes in `updater.conf`. Legacy salted SHA-256 hashes from older releases are upgraded automatically on the next successful login.
+- **API tokens** (`OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`) are encrypted at rest using AES-GCM with a per-install key stored in `.encryption-key` inside the data directory. Legacy configs encrypted with the old built-in key are migrated automatically on load.
+- **Config file permissions**: `updater.conf` and `.encryption-key` are written with mode `0600` on Unix.
+- **Environment overrides** (optional, for Docker/GitOps): set `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, or `WEB_PASSWORD` to override file values at runtime. `WEB_PASSWORD` in the environment is plaintext and is never written back to `updater.conf`.
+
+Example Docker override:
+
+```bash
+docker run -d \
+  -e DATA_DIR=/data \
+  -e OMADA_CLIENT_SECRET=your-secret \
+  -e DUCKDNS_TOKEN=your-token \
+  -v omada-data:/data \
+  ghcr.io/kbipinkumar/omada-duckdns-updater:latest
+```
 
 ---
 
