@@ -100,6 +100,14 @@ func encryptionKeyPath() string {
 func getEncryptionKey() ([]byte, error) {
 	encryptionKeyOnce.Do(func() {
 		path := encryptionKeyPath()
+		info, statErr := os.Stat(path)
+		if statErr == nil {
+			mode := info.Mode()
+			if mode&0077 != 0 {
+				encryptionKeyErr = fmt.Errorf("encryption key file %s has insecure permissions %o (expected 0600)", path, mode.Perm())
+				return
+			}
+		}
 		if data, err := os.ReadFile(path); err == nil {
 			if len(data) == 32 {
 				encryptionKey = data

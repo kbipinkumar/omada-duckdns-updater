@@ -670,7 +670,11 @@ type WanPreviewResponse struct {
 func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		config, err := loadConfig()
-		if err == nil && config.WebUsername != "" && webPasswordForAuth(config) != "" {
+		if err != nil {
+			http.Error(w, "Internal Server Error: failed to load configuration", http.StatusInternalServerError)
+			return
+		}
+		if config.WebUsername != "" && webPasswordForAuth(config) != "" {
 			user, pass, ok := r.BasicAuth()
 			if !ok || user != config.WebUsername || !verifyWebPassword(pass, config.WebPassword) {
 				w.Header().Set("WWW-Authenticate", `Basic realm="restricted"`)

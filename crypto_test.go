@@ -83,14 +83,33 @@ func TestPerInstallEncryptionKey(t *testing.T) {
 
 	t.Setenv("DATA_DIR", dir1)
 	resetEncryptionKeyForTests()
-	enc1 := obfuscateToken("shared-token")
+	_ = obfuscateToken("shared-token")
 
 	t.Setenv("DATA_DIR", dir2)
 	resetEncryptionKeyForTests()
-	enc2 := obfuscateToken("shared-token")
+	_ = obfuscateToken("shared-token")
 
-	if enc1 == enc2 {
-		t.Fatal("expected different ciphertext for different data directories")
+	keyPath1 := filepath.Join(dir1, ".encryption-key")
+	keyPath2 := filepath.Join(dir2, ".encryption-key")
+
+	key1, err := os.ReadFile(keyPath1)
+	if err != nil {
+		t.Fatalf("failed to read key1: %v", err)
+	}
+	key2, err := os.ReadFile(keyPath2)
+	if err != nil {
+		t.Fatalf("failed to read key2: %v", err)
+	}
+
+	if len(key1) != 32 {
+		t.Fatalf("key1 length = %d, want 32", len(key1))
+	}
+	if len(key2) != 32 {
+		t.Fatalf("key2 length = %d, want 32", len(key2))
+	}
+
+	if string(key1) == string(key2) {
+		t.Fatal("expected different encryption keys for different data directories")
 	}
 }
 

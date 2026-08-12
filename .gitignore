@@ -5,6 +5,7 @@ ddns-updater
 # Configuration files with sensitive data
 updater.conf
 .env
+.encryption-key
 
 # Debian package build artifacts
 build_deb/

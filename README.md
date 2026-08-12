@@ -108,10 +108,11 @@ Pre-built Docker images are automatically published to the GitHub Container Regi
    | `DUCKDNS_TOKEN` | Overrides the DuckDNS token from `updater.conf` at runtime |
    | `WEB_PASSWORD` | Overrides the Web UI password at runtime (plaintext in env only; never written to `updater.conf`) |
 
-   Copy `example.env` to `.env`, replace the placeholder values, then start the stack:
+   Copy `example.env` to `.env`, set restrictive permissions, replace the placeholder values, then start the stack:
 
    ```bash
    cp example.env .env
+   chmod 600 .env
    # edit .env with your secrets
    docker compose up -d
    ```
@@ -120,13 +121,14 @@ Pre-built Docker images are automatically published to the GitHub Container Regi
 
 2. **Run using Docker CLI:**
    ```bash
+   cp example.env .env
+   chmod 600 .env
+   # edit .env with your secrets (OMADA_CLIENT_SECRET, DUCKDNS_TOKEN, WEB_PASSWORD)
    docker run -d \
      --name omada-ddns \
      -p 5381:5381 \
      -e DATA_DIR=/data \
-     -e OMADA_CLIENT_SECRET=your-secret \
-     -e DUCKDNS_TOKEN=your-token \
-     -e WEB_PASSWORD=your-web-ui-password \
+     --env-file .env \
      -v omada-data:/data \
      ghcr.io/kbipinkumar/omada-duckdns-updater:latest
    ```
@@ -138,6 +140,8 @@ If you are modifying the code and want to build the Docker image locally:
 1. **Using Docker Compose:**
    ```bash
    cp example.env .env   # optional: add secret overrides
+   chmod 600 .env
+   # edit .env with your secrets
    docker compose -f docker-compose.dev.yml up -d --build
    ```
 
@@ -147,10 +151,12 @@ If you are modifying the code and want to build the Docker image locally:
    We also provide a wrapper script that automatically tags your locally built image with the correct Git version.
    ```bash
    ./build-docker.sh
+   cp example.env .env
+   chmod 600 .env
+   # edit .env with your secrets (OMADA_CLIENT_SECRET, DUCKDNS_TOKEN, WEB_PASSWORD)
    docker run -d -p 5381:5381 \
      -e DATA_DIR=/data \
-     -e OMADA_CLIENT_SECRET=your-secret \
-     -e DUCKDNS_TOKEN=your-token \
+     --env-file .env \
      -v omada-data:/data \
      omada-duckdns-updater:latest
    ```
@@ -225,14 +231,15 @@ Check the **Status Dashboard** at the top of the page to verify that the IPs wer
 - **Config file permissions**: `updater.conf` and `.encryption-key` are written with mode `0600` on Unix.
 - **Environment overrides** (optional, for Docker/GitOps): set `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, or `WEB_PASSWORD` to override file values at runtime. `WEB_PASSWORD` in the environment is plaintext and is never written back to `updater.conf`. See **Method 4: Docker** above for Compose and `.env` usage.
 
-Example Docker CLI override:
+Example Docker CLI override using `.env` file:
 
 ```bash
+cp example.env .env
+chmod 600 .env
+# edit .env with your secrets (OMADA_CLIENT_SECRET, DUCKDNS_TOKEN, WEB_PASSWORD)
 docker run -d \
   -e DATA_DIR=/data \
-  -e OMADA_CLIENT_SECRET=your-secret \
-  -e DUCKDNS_TOKEN=your-token \
-  -e WEB_PASSWORD=your-web-ui-password \
+  --env-file .env \
   -v omada-data:/data \
   ghcr.io/kbipinkumar/omada-duckdns-updater:latest
 ```

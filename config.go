@@ -187,19 +187,48 @@ func saveConfig(config *Config) error {
 	if err := ensureDataDir(); err != nil {
 		return err
 	}
-	file, err := os.Create(getConfigFilePath())
+
+	encryptedClientSecret := obfuscateToken(config.OmadaClientSecret)
+	if encryptedClientSecret == config.OmadaClientSecret && config.OmadaClientSecret != "" && !strings.HasPrefix(config.OmadaClientSecret, "ENC:") {
+		return fmt.Errorf("encryption unavailable: failed to encrypt OMADA_CLIENT_SECRET")
+	}
+
+	encryptedDuckDNSToken := obfuscateToken(config.DuckDNSToken)
+	if encryptedDuckDNSToken == config.DuckDNSToken && config.DuckDNSToken != "" && !strings.HasPrefix(config.DuckDNSToken, "ENC:") {
+		return fmt.Errorf("encryption unavailable: failed to encrypt DUCKDNS_TOKEN")
+	}
+
+	configPath := getConfigFilePath()
+	dir := filepath.Dir(configPath)
+	if dir == "" || dir == "." {
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		dir = wd
+	}
+
+	tempFile, err := os.CreateTemp(dir, ".updater.conf.tmp*")
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	tempPath := tempFile.Name()
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempPath)
+	}()
 
-	writer := bufio.NewWriter(file)
+	if err := tempFile.Chmod(0600); err != nil {
+		return err
+	}
+
+	writer := bufio.NewWriter(tempFile)
 	fmt.Fprintf(writer, "OMADA_URL=%s\n", config.OmadaURL)
 	fmt.Fprintf(writer, "OMADA_CLIENT_ID=%s\n", config.OmadaClientID)
-	fmt.Fprintf(writer, "OMADA_CLIENT_SECRET=%s\n", obfuscateToken(config.OmadaClientSecret))
+	fmt.Fprintf(writer, "OMADA_CLIENT_SECRET=%s\n", encryptedClientSecret)
 	fmt.Fprintf(writer, "OMADA_OMADAC_ID=%s\n", config.OmadaOmadacID)
 	fmt.Fprintf(writer, "OMADA_SITE_ID=%s\n", config.OmadaSiteID)
-	fmt.Fprintf(writer, "DUCKDNS_TOKEN=%s\n", obfuscateToken(config.DuckDNSToken))
+	fmt.Fprintf(writer, "DUCKDNS_TOKEN=%s\n", encryptedDuckDNSToken)
 	fmt.Fprintf(writer, "DUCKDNS_DOMAIN=%s\n", config.DuckDNSDomain)
 	fmt.Fprintf(writer, "UPDATE_IPV4=%t\n", config.UpdateIPv4)
 	fmt.Fprintf(writer, "UPDATE_IPV6=%t\n", config.UpdateIPv6)
@@ -212,7 +241,11 @@ func saveConfig(config *Config) error {
 	if err := writer.Flush(); err != nil {
 		return err
 	}
-	return os.Chmod(getConfigFilePath(), 0600)
+	if err := tempFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tempPath, configPath)
 }
 
 // DuckDNSDomains returns up to five configured DuckDNS domain names for the UI.

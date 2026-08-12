@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -57,8 +58,10 @@ func TestLoadSaveConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stat() error = %v", err)
 	}
-	if info.Mode().Perm() != 0600 {
-		t.Fatalf("config file mode = %o, want 0600", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		if info.Mode().Perm() != 0600 {
+			t.Fatalf("config file mode = %o, want 0600", info.Mode().Perm())
+		}
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
