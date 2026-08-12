@@ -1,0 +1,5 @@
+name: "omada-duckdns-updater CodeQL"
+paths-ignore:
+  # Legacy salted SHA-256 verification is retained only for one-release migration.
+  # All new passwords use bcrypt (see crypto.go).
+  - password_legacy.go
