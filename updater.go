@@ -253,7 +253,9 @@ func updateDuckDNS(config *Config, ipv4, ipv6 string) error {
 
 // Site represents an Omada site returned by the OpenAPI sites endpoint.
 type Site struct {
-	Id   string `json:"siteId"`
+	// Id is the Omada site identifier.
+	Id string `json:"siteId"`
+	// Name is the Omada site display name.
 	Name string `json:"name"`
 }
 

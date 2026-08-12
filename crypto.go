@@ -16,7 +16,7 @@ import (
 // inspection but is not secure against determined attackers.
 var obfuscationKey = []byte("omada-duckdns-updater-obfuscate-") // 32 bytes
 
-// hashPassword returns a salted SHA-256 hash suitable for storing web UI passwords.
+// hashPassword returns a legacy salted SHA-256 digest. It is not suitable for new password storage.
 func hashPassword(password string) (string, error) {
 	if password == "" {
 		return "", nil
@@ -29,7 +29,7 @@ func hashPassword(password string) (string, error) {
 	return fmt.Sprintf("%s:%s", hex.EncodeToString(salt), hex.EncodeToString(hash)), nil
 }
 
-// checkPassword verifies password against a stored hash or legacy plaintext value.
+// checkPassword verifies a legacy salted SHA-256 digest or a legacy plaintext value.
 func checkPassword(password, storedHash string) bool {
 	if storedHash == "" {
 		return password == ""

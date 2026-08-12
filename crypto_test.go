@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestHashAndCheckPassword verifies salted password hashing and verification.
+// TestHashAndCheckPassword verifies legacy salted SHA-256 password verification.
 func TestHashAndCheckPassword(t *testing.T) {
 	hashed, err := hashPassword("secret")
 	if err != nil {
