@@ -57,9 +57,17 @@ func TestLoadSaveConfig(t *testing.T) {
 		t.Fatalf("ReadFile() error = %v", err)
 	}
 	content := string(data)
-	for _, part := range []string{"ENC:", "OMADA_CLIENT_SECRET=", "DUCKDNS_TOKEN="} {
+	for _, part := range []string{
+		"OMADA_CLIENT_SECRET=ENC:",
+		"DUCKDNS_TOKEN=ENC:",
+	} {
 		if !strings.Contains(content, part) {
 			t.Fatalf("expected %q in config file, got:\n%s", part, content)
+		}
+	}
+	for _, secret := range []string{cfg.OmadaClientSecret, cfg.DuckDNSToken} {
+		if strings.Contains(content, secret) {
+			t.Fatalf("config file contains plaintext secret %q", secret)
 		}
 	}
 }
