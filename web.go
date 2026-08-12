@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// uiTemplate is the embedded HTML for the configuration and status dashboard.
 const uiTemplate = `
 <!DOCTYPE html>
 <html lang="en">
@@ -642,8 +643,10 @@ const uiTemplate = `
 </html>
 `
 
+// tmpl is the parsed web UI template used by HTTP handlers.
 var tmpl = template.Must(template.New("ui").Parse(uiTemplate))
 
+// PageData supplies template variables for the configuration page.
 type PageData struct {
 	Config     *Config
 	Message    string
@@ -653,6 +656,7 @@ type PageData struct {
 	IsFirstRun bool
 }
 
+// WanPreviewResponse is the JSON payload returned by the WAN preview API.
 type WanPreviewResponse struct {
 	IPv4       string   `json:"ipv4"`
 	IPv6       string   `json:"ipv6"`
@@ -661,7 +665,7 @@ type WanPreviewResponse struct {
 	Warnings   []string `json:"warnings"`
 }
 
-// BasicAuth middleware
+// basicAuth wraps an HTTP handler with optional web UI basic authentication.
 func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		config, err := loadConfig()
@@ -677,6 +681,7 @@ func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// handleIndex renders the configuration page and status dashboard.
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	config, err := loadConfig()
 	if err != nil {
@@ -692,6 +697,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
+// handleSave persists configuration submitted from the web UI form.
 func handleSave(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -761,6 +767,7 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
+// handleRun triggers an immediate DuckDNS update from the web UI.
 func handleRun(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -775,6 +782,7 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Update successful!")
 }
 
+// handleApiSites returns available Omada sites for the site picker UI.
 func handleApiSites(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -806,6 +814,7 @@ func handleApiSites(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(sites)
 }
 
+// handleApiWan previews gateway WAN IPs before first-run configuration is saved.
 func handleApiWan(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -871,6 +880,7 @@ func handleApiWan(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// startWebServer serves the configuration UI until ctx is cancelled.
 func startWebServer(ctx context.Context) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", basicAuth(handleIndex))
