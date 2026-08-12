@@ -16,7 +16,7 @@ It features a beautiful, built-in Web UI for easy configuration and a live statu
 ---
 
 ## Prerequisites
-- **Go 1.21+** (if compiling from source)
+- **Go 1.26+** (if compiling from source)
 - An **Omada SDN Controller** (Hardware or Software) with an API user / Client ID & Secret configured.
 - A **DuckDNS** account and domain.
 
