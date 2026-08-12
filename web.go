@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -436,26 +437,26 @@ const uiTemplate = `
         const error = document.getElementById('previewError');
         if (warnings) {
             warnings.style.display = 'none';
-            warnings.innerHTML = '';
+            warnings.textContent = '';
         }
         if (error) {
             error.style.display = 'none';
-            error.innerHTML = '';
+            error.textContent = '';
         }
     }
 
     function setupFirstRunListeners() {
         if (!isFirstRun) return;
         const fields = ['OmadaURL', 'OmadaClientID', 'OmadaClientSecret', 'OmadaOmadacID', 'OmadaSiteID'];
-        fields.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('input', resetVerifyState);
-                el.addEventListener('change', resetVerifyState);
-            }
-        });
         const form = document.getElementById('configForm');
         if (form) {
+            const handler = function(e) {
+                if (e.target && fields.indexOf(e.target.id) !== -1) {
+                    resetVerifyState();
+                }
+            };
+            form.addEventListener('input', handler);
+            form.addEventListener('change', handler);
             form.addEventListener('submit', function(e) {
                 if (!verifyCompleted) {
                     e.preventDefault();
@@ -516,7 +517,11 @@ const uiTemplate = `
 
             if (data.warnings && data.warnings.length > 0) {
                 warningsEl.style.display = 'block';
-                warningsEl.innerHTML = '<strong>Warnings:</strong> ' + data.warnings.join(' | ');
+                warningsEl.textContent = '';
+                const wLabel = document.createElement('strong');
+                wLabel.textContent = 'Warnings:';
+                warningsEl.appendChild(wLabel);
+                warningsEl.appendChild(document.createTextNode(' ' + data.warnings.join(' | ')));
             }
 
             verifyCompleted = true;
@@ -533,7 +538,11 @@ const uiTemplate = `
             const errorEl = document.getElementById('previewError');
             panel.style.display = 'block';
             errorEl.style.display = 'block';
-            errorEl.innerHTML = '<strong>Verification failed:</strong> ' + e.message;
+            errorEl.textContent = '';
+            const eLabel = document.createElement('strong');
+            eLabel.textContent = 'Verification failed:';
+            errorEl.appendChild(eLabel);
+            errorEl.appendChild(document.createTextNode(' ' + e.message));
             btn.disabled = false;
             btn.innerText = 'Verify Connection';
         });
@@ -639,7 +648,7 @@ type PageData struct {
 	Config     *Config
 	Message    string
 	Error      bool
-	State      UpdateState
+	State      StateView
 	Version    string
 	IsFirstRun bool
 }
@@ -674,13 +683,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		config = &Config{UpdateInterval: 5}
 	}
 
-	globalState.RLock()
-	stateCopy := globalState
-	globalState.RUnlock()
-
 	data := PageData{
 		Config:     config,
-		State:      stateCopy,
+		State:      snapshotState(),
 		Version:    version,
 		IsFirstRun: isFirstRun(config),
 	}
@@ -737,14 +742,10 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := saveConfig(config)
-	
-	globalState.RLock()
-	stateCopy := globalState
-	globalState.RUnlock()
 
 	data := PageData{
 		Config:     config,
-		State:      stateCopy,
+		State:      snapshotState(),
 		Version:    version,
 		IsFirstRun: isFirstRun(config),
 	}
@@ -835,7 +836,7 @@ func handleApiWan(w http.ResponseWriter, r *http.Request) {
 
 	ipv4, ipv6, err := getGatewayWAN(&reqConfig, token)
 	if err != nil {
-		if err.Error() == "WAN_DOWN" {
+		if errors.Is(err, ErrWANDown) {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "WAN interface is down or has no IP from ISP")
 			return
