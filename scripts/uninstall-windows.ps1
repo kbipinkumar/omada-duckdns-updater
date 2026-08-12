@@ -22,6 +22,22 @@ $DataDir = Join-Path $env:ProgramData "omada-duckdns-updater"
 $DestExe = Join-Path $InstallDir "omada-duckdns-updater.exe"
 $FirewallRule = "Omada DuckDNS Updater Web UI"
 
+function Get-ServiceByName {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    try {
+        return Get-Service -Name $Name -ErrorAction Stop
+    }
+    catch [Microsoft.PowerShell.Commands.ServiceCommandException] {
+        # Documented not-found path from Get-Service; rethrow anything else.
+        if ($_.FullyQualifiedErrorId -notlike "NoServiceFoundForGivenName*") {
+            throw
+        }
+        return $null
+    }
+}
+
 function Wait-ServiceStatusStopped {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -29,13 +45,13 @@ function Wait-ServiceStatusStopped {
     )
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+        $svc = Get-ServiceByName -Name $Name
         if (-not $svc -or $svc.Status -eq "Stopped") {
             return
         }
         Start-Sleep -Milliseconds 300
     }
-    $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+    $svc = Get-ServiceByName -Name $Name
     if ($svc -and $svc.Status -ne "Stopped") {
         Write-Error "Timed out waiting for service '$Name' to reach Stopped (status: $($svc.Status))."
     }
@@ -48,17 +64,17 @@ function Wait-ServiceRemoved {
     )
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        if (-not (Get-Service -Name $Name -ErrorAction SilentlyContinue)) {
+        if (-not (Get-ServiceByName -Name $Name)) {
             return
         }
         Start-Sleep -Milliseconds 300
     }
-    if (Get-Service -Name $Name -ErrorAction SilentlyContinue) {
+    if (Get-ServiceByName -Name $Name) {
         Write-Error "Service '$Name' still exists after uninstall/delete."
     }
 }
 
-$existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+$existing = Get-ServiceByName -Name $ServiceName
 if ($existing) {
     if (Test-Path -LiteralPath $DestExe) {
         if ($existing.Status -ne "Stopped") {
