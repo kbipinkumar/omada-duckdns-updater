@@ -15,7 +15,7 @@ This file serves as a context and reference guide for AI assistants and develope
   - Submits the IPs to DuckDNS (`updateDuckDNS`).
   - Maintains `globalState` (a thread-safe `UpdateState` struct) to track the timestamp, IPs, and success/error status of the most recent run for the Web UI dashboard.
 - **`web.go`**: HTTP server on port `5381` with graceful `Shutdown` on context cancel.
-  - Endpoints: `/`, `/save`, `/run`, `/api/sites`
+  - Endpoints: `/`, `/save`, `/run`, `/api/sites`, `/api/wan`
   - Basic Auth when `WebUsername` / `WebPassword` are set.
 - **`service_windows.go`** / **`service_other.go`**: Windows Service integration (`OmadaDuckDNSUpdater`) via `golang.org/x/sys/windows/svc`; stubs on non-Windows.
 - **`scripts/install-windows.ps1`** / **`uninstall-windows.ps1`**: Admin installers for Windows Desktop/Server.
