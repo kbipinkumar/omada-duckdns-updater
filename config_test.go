@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// TestLoadSaveConfig verifies config round-tripping and obfuscated secret storage.
 func TestLoadSaveConfig(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("DATA_DIR", dir)
@@ -72,6 +73,7 @@ func TestLoadSaveConfig(t *testing.T) {
 	}
 }
 
+// TestDuckDNSDomains verifies comma-separated domains are split into five slots.
 func TestDuckDNSDomains(t *testing.T) {
 	cfg := &Config{DuckDNSDomain: "a.example.com,b.example.com"}
 	domains := cfg.DuckDNSDomains()

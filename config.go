@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// Config holds Omada, DuckDNS, scheduling, and web UI settings loaded from updater.conf.
 type Config struct {
 	OmadaURL          string
 	OmadaClientID     string
@@ -42,6 +43,7 @@ func getDataDir() string {
 	return ""
 }
 
+// getConfigFilePath returns the path to updater.conf in the data directory.
 func getConfigFilePath() string {
 	dir := getDataDir()
 	if dir != "" {
@@ -50,15 +52,18 @@ func getConfigFilePath() string {
 	return "updater.conf"
 }
 
+// configFileExists reports whether updater.conf is present on disk.
 func configFileExists() bool {
 	_, err := os.Stat(getConfigFilePath())
 	return err == nil
 }
 
+// isFirstRun reports whether the application has not yet been configured.
 func isFirstRun(config *Config) bool {
 	return !configFileExists() || config.OmadaURL == ""
 }
 
+// ensureDataDir creates the data directory when one is configured.
 func ensureDataDir() error {
 	dir := getDataDir()
 	if dir == "" {
@@ -67,6 +72,7 @@ func ensureDataDir() error {
 	return os.MkdirAll(dir, 0755)
 }
 
+// loadConfig reads updater.conf and returns defaults when the file is missing.
 func loadConfig() (*Config, error) {
 	// Default to updating IPv4 only
 	config := &Config{UpdateInterval: 5, UpdateIPv4: true, UpdateIPv6: false}
@@ -130,6 +136,7 @@ func loadConfig() (*Config, error) {
 	return config, scanner.Err()
 }
 
+// saveConfig writes config to updater.conf, obfuscating sensitive token values.
 func saveConfig(config *Config) error {
 	if err := ensureDataDir(); err != nil {
 		return err
@@ -159,6 +166,7 @@ func saveConfig(config *Config) error {
 	return writer.Flush()
 }
 
+// DuckDNSDomains returns up to five configured DuckDNS domain names for the UI.
 func (c *Config) DuckDNSDomains() []string {
 	parts := strings.Split(c.DuckDNSDomain, ",")
 	res := make([]string, 5)

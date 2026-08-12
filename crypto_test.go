@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+// TestHashAndCheckPassword verifies legacy salted SHA-256 password verification.
 func TestHashAndCheckPassword(t *testing.T) {
 	hashed, err := hashPassword("secret")
 	if err != nil {
@@ -24,6 +25,7 @@ func TestHashAndCheckPassword(t *testing.T) {
 	}
 }
 
+// TestObfuscateAndDeobfuscateToken verifies token obfuscation round-tripping.
 func TestObfuscateAndDeobfuscateToken(t *testing.T) {
 	original := "my-secret-token"
 	obfuscated := obfuscateToken(original)
@@ -40,6 +42,7 @@ func TestObfuscateAndDeobfuscateToken(t *testing.T) {
 	}
 }
 
+// TestObfuscateTokenIdempotent verifies already-obfuscated tokens are unchanged.
 func TestObfuscateTokenIdempotent(t *testing.T) {
 	already := "ENC:abc123"
 	if got := obfuscateToken(already); got != already {
