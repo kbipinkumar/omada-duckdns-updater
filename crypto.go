@@ -12,10 +12,11 @@ import (
 	"strings"
 )
 
-// A hardcoded key for obfuscation. This is not secure against determined attackers,
-// but it prevents casual snooping of plaintext tokens in the config file.
+// obfuscationKey encrypts sensitive tokens in the config file. It deters casual
+// inspection but is not secure against determined attackers.
 var obfuscationKey = []byte("omada-duckdns-updater-obfuscate-") // 32 bytes
 
+// hashPassword returns a legacy salted SHA-256 digest. It is not suitable for new password storage.
 func hashPassword(password string) (string, error) {
 	if password == "" {
 		return "", nil
@@ -28,6 +29,7 @@ func hashPassword(password string) (string, error) {
 	return fmt.Sprintf("%s:%s", hex.EncodeToString(salt), hex.EncodeToString(hash)), nil
 }
 
+// checkPassword verifies a legacy salted SHA-256 digest or a legacy plaintext value.
 func checkPassword(password, storedHash string) bool {
 	if storedHash == "" {
 		return password == ""
@@ -44,6 +46,7 @@ func checkPassword(password, storedHash string) bool {
 	return hex.EncodeToString(hash) == parts[1]
 }
 
+// computeSHA256Hash returns the salted SHA-256 digest of password.
 func computeSHA256Hash(password string, salt []byte) []byte {
 	h := sha256.New()
 	h.Write(salt)
@@ -51,6 +54,7 @@ func computeSHA256Hash(password string, salt []byte) []byte {
 	return h.Sum(nil)
 }
 
+// obfuscateToken encrypts token for storage in updater.conf with an ENC: prefix.
 func obfuscateToken(token string) string {
 	if token == "" || strings.HasPrefix(token, "ENC:") {
 		return token
@@ -71,6 +75,7 @@ func obfuscateToken(token string) string {
 	return "ENC:" + base64.StdEncoding.EncodeToString(ciphertext)
 }
 
+// deobfuscateToken decrypts a token previously stored by obfuscateToken.
 func deobfuscateToken(token string) string {
 	if !strings.HasPrefix(token, "ENC:") {
 		return token

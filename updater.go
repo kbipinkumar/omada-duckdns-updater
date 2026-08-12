@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// UpdateState tracks the most recent updater run and its outcome.
 type UpdateState struct {
 	sync.RWMutex
 	LastRunTime time.Time
@@ -39,10 +40,13 @@ type StateView struct {
 	LastWarning        string
 }
 
+// globalState holds the shared updater status used by the web UI.
 var globalState UpdateState
 
+// ErrWANDown indicates the Omada gateway WAN interface has no usable IP addresses.
 var ErrWANDown = errors.New("WAN_DOWN")
 
+// snapshotState returns a copy of globalState safe for template rendering.
 func snapshotState() StateView {
 	globalState.RLock()
 	defer globalState.RUnlock()
@@ -58,6 +62,8 @@ func snapshotState() StateView {
 	}
 }
 
+// isPublicIP reports whether ipStr is a routable public address and, when false,
+// returns a human-readable rejection reason.
 func isPublicIP(ipStr string) (bool, string) {
 	if ipStr == "" {
 		return false, "empty IP"
@@ -84,6 +90,7 @@ func isPublicIP(ipStr string) (bool, string) {
 	return true, ""
 }
 
+// createHTTPClient returns an HTTP client configured for local Omada controllers.
 func createHTTPClient() *http.Client {
 	// Skip TLS verify for Omada local connections
 	tr := &http.Transport{
@@ -92,6 +99,7 @@ func createHTTPClient() *http.Client {
 	return &http.Client{Transport: tr}
 }
 
+// getOmadaToken exchanges client credentials for an Omada OpenAPI access token.
 func getOmadaToken(config *Config) (string, error) {
 	client := createHTTPClient()
 	u := fmt.Sprintf("%s/openapi/authorize/token?grant_type=client_credentials", config.OmadaURL)
@@ -130,6 +138,7 @@ func getOmadaToken(config *Config) (string, error) {
 	return data.Result.AccessToken, nil
 }
 
+// getGatewayWAN fetches the primary WAN IPv4 and IPv6 addresses from Omada.
 func getGatewayWAN(config *Config, token string) (ipv4, ipv6 string, err error) {
 	client := createHTTPClient()
 
@@ -214,6 +223,7 @@ func getGatewayWAN(config *Config, token string) (ipv4, ipv6 string, err error) 
 	return "", "", nil
 }
 
+// updateDuckDNS sends the current public IPs to DuckDNS for the configured domains.
 func updateDuckDNS(config *Config, ipv4, ipv6 string) error {
 	params := url.Values{}
 	params.Add("domains", config.DuckDNSDomain)
@@ -241,11 +251,15 @@ func updateDuckDNS(config *Config, ipv4, ipv6 string) error {
 	return nil
 }
 
+// Site represents an Omada site returned by the OpenAPI sites endpoint.
 type Site struct {
-	Id   string `json:"siteId"`
+	// Id is the Omada site identifier.
+	Id string `json:"siteId"`
+	// Name is the Omada site display name.
 	Name string `json:"name"`
 }
 
+// fetchSites retrieves available Omada sites for the configured controller.
 func fetchSites(config *Config, token string) ([]Site, error) {
 	client := createHTTPClient()
 	u := fmt.Sprintf("%s/openapi/v1/%s/sites?page=1&pageSize=100", config.OmadaURL, config.OmadaOmadacID)
@@ -275,6 +289,8 @@ func fetchSites(config *Config, token string) ([]Site, error) {
 	return data.Result.Data, nil
 }
 
+// runUpdate performs one DuckDNS update cycle and updates globalState.
+// When force is false, unchanged public IPs are skipped.
 func runUpdate(force bool) error {
 	globalState.Lock()
 	defer globalState.Unlock()

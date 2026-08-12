@@ -7,6 +7,7 @@ This file serves as a context and reference guide for AI assistants and develope
 
 ## Project Structure
 - **`main.go`**: Entry point. Parses flags, optionally handles Windows `-service` commands, then runs `runApp` (web server + context-cancelled updater loop). Console mode uses SIGINT/SIGTERM.
+- **`doc.go`**: Package-level Go documentation for `go doc` and tooling.
 - **`config.go`**: Manages the `Config` struct and `updater.conf`. Uses `filepath.Join` and `DATA_DIR`. On Windows, defaults to `%ProgramData%\omada-duckdns-updater` when `DATA_DIR` is unset; on other OSes defaults to `./updater.conf` (cwd).
 - **`updater.go`**: Contains the core business logic and API integrations:
   - Connects to the Omada OpenAPI to fetch access tokens (`getOmadaToken`).
@@ -45,3 +46,44 @@ The application can run as a user-level or system systemd service.
 - **Static Assets**: All CSS, JS, and HTML are embedded directly in `web.go` via a Go template string to keep deployment to a single binary simple.
 - **Dependencies**: Runtime logic uses the Go standard library plus `golang.org/x/sys` for Windows Service / Event Log support (build-tagged; Linux builds still work with the same module).
 - **Cross-compile**: `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build` or `./build-windows.sh amd64`.
+
+### Go Doc Comments (Required for Code Changes)
+
+When adding or modifying Go code, agents **must** include or update Go doc comments. This project uses doc comments for `go doc`, IDE hover help, and automated review tooling (for example, CodeRabbit docstring coverage).
+
+**What to document**
+- Package overview in `doc.go` (update if package behavior or scope changes materially).
+- Every new or changed exported type, function, method, variable, and constant.
+- Every new or changed unexported function, method, type, and variable when you touch that symbol.
+- Every new or changed test function in `*_test.go`.
+
+**Formatting rules**
+- Place the comment block immediately above the declaration with no blank line between them.
+- Start with the name of the symbol being documented (Go convention).
+- Use complete sentences. Prefer one concise summary sentence; add a second sentence only when behavior is non-obvious.
+- Describe purpose and important behavior (inputs, side effects, errors, platform constraints). Do not restate the signature verbatim.
+- For tests, state what behavior is being verified.
+
+**Examples**
+
+```go
+// loadConfig reads updater.conf and returns defaults when the file is missing.
+func loadConfig() (*Config, error) {
+
+// ErrWANDown indicates the Omada gateway WAN interface has no usable IP addresses.
+var ErrWANDown = errors.New("WAN_DOWN")
+
+// TestIsPublicIP verifies public, private, and special-use address classification.
+func TestIsPublicIP(t *testing.T) {
+```
+
+**Agent checklist before finishing a Go change**
+1. Added or updated doc comments for every new/changed symbol.
+2. Kept comments aligned with actual behavior after edits.
+3. Ran `go test ./...` and `go vet ./...`.
+4. Spot-checked with `go doc -all .` when adding exported API surface.
+
+**Do not**
+- Leave new functions, types, or tests undocumented.
+- Use block comments mid-function instead of declaration doc comments.
+- Write doc comments that contradict the implementation.

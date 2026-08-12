@@ -22,8 +22,10 @@ const (
 	windowsServiceDesc = "Fetches WAN IPs from Omada SDN Controller and updates DuckDNS."
 )
 
+// windowsService implements the Windows service control handler.
 type windowsService struct{}
 
+// Execute runs the updater when started by the Windows Service Control Manager.
 func (m *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
@@ -70,6 +72,7 @@ loop:
 	return false, errno
 }
 
+// setupServiceLogging directs log output to a file and the Windows event log.
 func setupServiceLogging() (io.Closer, error) {
 	var closers []io.Closer
 	var writers []io.Writer
@@ -98,10 +101,12 @@ func setupServiceLogging() (io.Closer, error) {
 	return multiCloser(closers), nil
 }
 
+// eventLogWriter forwards log lines to the Windows event log.
 type eventLogWriter struct {
 	elog *eventlog.Log
 }
 
+// Write records p as an informational Windows event log entry.
 func (w *eventLogWriter) Write(p []byte) (int, error) {
 	msg := string(p)
 	if err := w.elog.Info(1, msg); err != nil {
@@ -110,8 +115,10 @@ func (w *eventLogWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// multiCloser closes a slice of io.Closer values, returning the first error.
 type multiCloser []io.Closer
 
+// Close closes every closer in m and returns the first error encountered.
 func (m multiCloser) Close() error {
 	var first error
 	for _, c := range m {
@@ -122,6 +129,7 @@ func (m multiCloser) Close() error {
 	return first
 }
 
+// runMaybeAsService runs in the foreground or as a Windows service when applicable.
 func runMaybeAsService() error {
 	isService, err := svc.IsWindowsService()
 	if err != nil {
@@ -139,6 +147,7 @@ func runMaybeAsService() error {
 	return svc.Run(windowsServiceName, &windowsService{})
 }
 
+// handleServiceCommand processes Windows service install and control commands.
 func handleServiceCommand(cmd string) error {
 	switch cmd {
 	case "install":
@@ -154,6 +163,7 @@ func handleServiceCommand(cmd string) error {
 	}
 }
 
+// exePath returns the absolute path to the running executable.
 func exePath() (string, error) {
 	p, err := os.Executable()
 	if err != nil {
@@ -162,6 +172,7 @@ func exePath() (string, error) {
 	return filepath.Abs(p)
 }
 
+// installService registers the updater as a Windows service.
 func installService() error {
 	exepath, err := exePath()
 	if err != nil {
@@ -201,6 +212,7 @@ func installService() error {
 	return nil
 }
 
+// uninstallService removes the updater Windows service registration.
 func uninstallService() error {
 	m, err := mgr.Connect()
 	if err != nil {
@@ -225,6 +237,7 @@ func uninstallService() error {
 	return nil
 }
 
+// startService starts the installed Windows service.
 func startService() error {
 	m, err := mgr.Connect()
 	if err != nil {
@@ -245,6 +258,7 @@ func startService() error {
 	return nil
 }
 
+// stopService stops the installed Windows service.
 func stopService() error {
 	m, err := mgr.Connect()
 	if err != nil {
@@ -265,6 +279,7 @@ func stopService() error {
 	return nil
 }
 
+// stopServiceHandle sends a stop control request and waits for the service to stop.
 func stopServiceHandle(s *mgr.Service) error {
 	status, err := s.Control(svc.Stop)
 	if err != nil {

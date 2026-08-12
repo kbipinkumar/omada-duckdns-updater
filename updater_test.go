@@ -4,6 +4,7 @@ import (
 	"testing"
 )
 
+// TestIsPublicIP verifies public, private, and special-use address classification.
 func TestIsPublicIP(t *testing.T) {
 	tests := []struct {
 		ip     string
