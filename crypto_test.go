@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,21 +28,15 @@ func TestHashAndCheckPassword(t *testing.T) {
 	}
 }
 
-// TestLegacySHA256Password verifies legacy salted SHA-256 password verification.
-func TestLegacySHA256Password(t *testing.T) {
+// TestLegacySHA256PasswordRejected verifies legacy salted SHA-256 hashes are no longer accepted.
+func TestLegacySHA256PasswordRejected(t *testing.T) {
 	salt := make([]byte, 16)
 	for i := range salt {
 		salt[i] = byte(i)
 	}
-	legacy := hexEncode(salt) + ":" + hexEncode(computeSHA256Hash("secret", salt))
-	if !checkLegacySHA256Password("secret", legacy) {
-		t.Fatal("checkLegacySHA256Password() rejected valid legacy password")
-	}
-	if checkLegacySHA256Password("wrong", legacy) {
-		t.Fatal("checkLegacySHA256Password() accepted invalid password")
-	}
-	if !checkPassword("secret", legacy) {
-		t.Fatal("checkPassword() should accept legacy SHA-256 hash")
+	legacy := hexEncode(salt) + ":" + hexEncode(legacySHA256Digest(salt, "secret"))
+	if checkPassword("secret", legacy) {
+		t.Fatal("checkPassword() should reject legacy SHA-256 hash")
 	}
 	if !needsPasswordUpgrade(legacy) {
 		t.Fatal("needsPasswordUpgrade() should report legacy hash")
@@ -172,4 +167,11 @@ func hexEncode(b []byte) string {
 		out[i*2+1] = hexdigits[v&0x0f]
 	}
 	return string(out)
+}
+
+func legacySHA256Digest(salt []byte, password string) []byte {
+	h := sha256.New()
+	h.Write(salt)
+	h.Write([]byte(password))
+	return h.Sum(nil)
 }

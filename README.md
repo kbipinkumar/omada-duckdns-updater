@@ -226,7 +226,7 @@ Check the **Status Dashboard** at the top of the page to verify that the IPs wer
 
 ## Security Notes
 
-- **Web UI passwords** are stored as bcrypt hashes in `updater.conf`. Legacy salted SHA-256 hashes from older releases are upgraded automatically on the next successful login.
+- **Web UI passwords** are stored as bcrypt hashes in `updater.conf`. If you upgraded from an older release that used salted SHA-256, clear `WEB_PASSWORD` in `updater.conf` and set a new password via the Web UI (see Troubleshooting).
 - **API tokens** (`OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`) are encrypted at rest using AES-GCM with a per-install key stored in `.encryption-key` inside the data directory. Legacy configs encrypted with the old built-in key are migrated automatically on load.
 - **Config file permissions**: `updater.conf` and `.encryption-key` are written with mode `0600` on Unix.
 - **Environment overrides** (optional, for Docker/GitOps): set `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, or `WEB_PASSWORD` to override file values at runtime. `WEB_PASSWORD` in the environment is plaintext and is never written back to `updater.conf`. See **Method 4: Docker** above for Compose and `.env` usage.

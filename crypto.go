@@ -38,7 +38,7 @@ func hashPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
-// checkPassword verifies password against a bcrypt hash or a legacy salted SHA-256 digest.
+// checkPassword verifies password against a bcrypt hash stored in updater.conf.
 func checkPassword(password, storedHash string) bool {
 	if storedHash == "" {
 		return password == ""
@@ -46,7 +46,7 @@ func checkPassword(password, storedHash string) bool {
 	if isBcryptHash(storedHash) {
 		return bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password)) == nil
 	}
-	return checkLegacySHA256Password(password, storedHash)
+	return false
 }
 
 // needsPasswordUpgrade reports whether storedHash uses a legacy format that should be re-hashed.
