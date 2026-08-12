@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.version=${VERSION}" -o omada-duckdns-updater
 
 # Run Stage
-FROM alpine:latest
+FROM alpine:3.21
 
 WORKDIR /app
 
