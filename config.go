@@ -88,6 +88,7 @@ func loadConfig() (*Config, error) {
 	}
 	defer file.Close()
 
+	needsMigration := false
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -106,13 +107,21 @@ func loadConfig() (*Config, error) {
 		case "OMADA_CLIENT_ID":
 			config.OmadaClientID = val
 		case "OMADA_CLIENT_SECRET":
-			config.OmadaClientSecret = deobfuscateToken(val)
+			plain, usedLegacy := decryptToken(val)
+			config.OmadaClientSecret = plain
+			if usedLegacy || (!strings.HasPrefix(val, "ENC:") && val != "") {
+				needsMigration = true
+			}
 		case "OMADA_OMADAC_ID":
 			config.OmadaOmadacID = val
 		case "OMADA_SITE_ID":
 			config.OmadaSiteID = val
 		case "DUCKDNS_TOKEN":
-			config.DuckDNSToken = deobfuscateToken(val)
+			plain, usedLegacy := decryptToken(val)
+			config.DuckDNSToken = plain
+			if usedLegacy || (!strings.HasPrefix(val, "ENC:") && val != "") {
+				needsMigration = true
+			}
 		case "DUCKDNS_DOMAIN":
 			config.DuckDNSDomain = val
 		case "UPDATE_IPV4":
@@ -133,7 +142,44 @@ func loadConfig() (*Config, error) {
 			config.WebPassword = val
 		}
 	}
-	return config, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	applyEnvOverrides(config)
+
+	if needsMigration {
+		if err := saveConfig(config); err != nil {
+			return config, err
+		}
+	}
+	return config, nil
+}
+
+// applyEnvOverrides replaces API token secrets with environment variables when set.
+func applyEnvOverrides(config *Config) {
+	if v := os.Getenv("OMADA_CLIENT_SECRET"); v != "" {
+		config.OmadaClientSecret = v
+	}
+	if v := os.Getenv("DUCKDNS_TOKEN"); v != "" {
+		config.DuckDNSToken = v
+	}
+}
+
+// webPasswordForAuth returns the password used for Basic Auth checks.
+func webPasswordForAuth(config *Config) string {
+	if v := os.Getenv("WEB_PASSWORD"); v != "" {
+		return v
+	}
+	return config.WebPassword
+}
+
+// verifyWebPassword checks the supplied password against stored or env-provided credentials.
+func verifyWebPassword(password, stored string) bool {
+	if v := os.Getenv("WEB_PASSWORD"); v != "" {
+		return password == v
+	}
+	return checkPassword(password, stored)
 }
 
 // saveConfig writes config to updater.conf, obfuscating sensitive token values.
@@ -141,19 +187,48 @@ func saveConfig(config *Config) error {
 	if err := ensureDataDir(); err != nil {
 		return err
 	}
-	file, err := os.Create(getConfigFilePath())
+
+	encryptedClientSecret := obfuscateToken(config.OmadaClientSecret)
+	if encryptedClientSecret == config.OmadaClientSecret && config.OmadaClientSecret != "" && !strings.HasPrefix(config.OmadaClientSecret, "ENC:") {
+		return fmt.Errorf("encryption unavailable: failed to encrypt OMADA_CLIENT_SECRET")
+	}
+
+	encryptedDuckDNSToken := obfuscateToken(config.DuckDNSToken)
+	if encryptedDuckDNSToken == config.DuckDNSToken && config.DuckDNSToken != "" && !strings.HasPrefix(config.DuckDNSToken, "ENC:") {
+		return fmt.Errorf("encryption unavailable: failed to encrypt DUCKDNS_TOKEN")
+	}
+
+	configPath := getConfigFilePath()
+	dir := filepath.Dir(configPath)
+	if dir == "" || dir == "." {
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		dir = wd
+	}
+
+	tempFile, err := os.CreateTemp(dir, ".updater.conf.tmp*")
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	tempPath := tempFile.Name()
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempPath)
+	}()
 
-	writer := bufio.NewWriter(file)
+	if err := tempFile.Chmod(0600); err != nil {
+		return err
+	}
+
+	writer := bufio.NewWriter(tempFile)
 	fmt.Fprintf(writer, "OMADA_URL=%s\n", config.OmadaURL)
 	fmt.Fprintf(writer, "OMADA_CLIENT_ID=%s\n", config.OmadaClientID)
-	fmt.Fprintf(writer, "OMADA_CLIENT_SECRET=%s\n", obfuscateToken(config.OmadaClientSecret))
+	fmt.Fprintf(writer, "OMADA_CLIENT_SECRET=%s\n", encryptedClientSecret)
 	fmt.Fprintf(writer, "OMADA_OMADAC_ID=%s\n", config.OmadaOmadacID)
 	fmt.Fprintf(writer, "OMADA_SITE_ID=%s\n", config.OmadaSiteID)
-	fmt.Fprintf(writer, "DUCKDNS_TOKEN=%s\n", obfuscateToken(config.DuckDNSToken))
+	fmt.Fprintf(writer, "DUCKDNS_TOKEN=%s\n", encryptedDuckDNSToken)
 	fmt.Fprintf(writer, "DUCKDNS_DOMAIN=%s\n", config.DuckDNSDomain)
 	fmt.Fprintf(writer, "UPDATE_IPV4=%t\n", config.UpdateIPv4)
 	fmt.Fprintf(writer, "UPDATE_IPV6=%t\n", config.UpdateIPv6)
@@ -163,7 +238,14 @@ func saveConfig(config *Config) error {
 	fmt.Fprintf(writer, "UPDATE_INTERVAL=%d\n", config.UpdateInterval)
 	fmt.Fprintf(writer, "WEB_USERNAME=%s\n", config.WebUsername)
 	fmt.Fprintf(writer, "WEB_PASSWORD=%s\n", config.WebPassword)
-	return writer.Flush()
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	if err := tempFile.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tempPath, configPath)
 }
 
 // DuckDNSDomains returns up to five configured DuckDNS domain names for the UI.

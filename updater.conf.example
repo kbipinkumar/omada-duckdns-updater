@@ -20,6 +20,15 @@ UPDATE_INTERVAL=5
 
 # Web UI Basic Authentication (Optional)
 # If set, the Web UI will require these credentials to access the dashboard.
-# Note: When saved via the Web UI, the password will be securely hashed, and tokens will be obfuscated.
+# When saved via the Web UI, the password is bcrypt-hashed. API tokens are encrypted
+# at rest with a per-install key (.encryption-key in the data directory).
+# updater.conf is written with mode 0600 on Unix.
+# Set the password through the Web UI instead of editing this file directly.
 WEB_USERNAME=admin
-WEB_PASSWORD=your-secure-password
+WEB_PASSWORD=
+
+# Optional environment variable overrides (useful for Docker/GitOps).
+# When set, these take precedence over values in this file at runtime:
+#   OMADA_CLIENT_SECRET
+#   DUCKDNS_TOKEN
+#   WEB_PASSWORD  (plaintext in env only; not written back to updater.conf)

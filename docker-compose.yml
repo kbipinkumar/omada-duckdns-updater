@@ -6,6 +6,11 @@ services:
       - "5381:5381"
     environment:
       - DATA_DIR=/data
+      # Optional runtime secret overrides (see README and example.env).
+      # When set, these take precedence over values stored in updater.conf.
+      - OMADA_CLIENT_SECRET=${OMADA_CLIENT_SECRET:-}
+      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN:-}
+      - WEB_PASSWORD=${WEB_PASSWORD:-}
     volumes:
       # Use a named volume to persist configuration data independently of the Git repo (ideal for GitOps)
       - omada-data:/data

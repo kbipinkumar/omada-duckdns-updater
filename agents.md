@@ -8,7 +8,8 @@ This file serves as a context and reference guide for AI assistants and develope
 ## Project Structure
 - **`main.go`**: Entry point. Parses flags, optionally handles Windows `-service` commands, then runs `runApp` (web server + context-cancelled updater loop). Console mode uses SIGINT/SIGTERM.
 - **`doc.go`**: Package-level Go documentation for `go doc` and tooling.
-- **`config.go`**: Manages the `Config` struct and `updater.conf`. Uses `filepath.Join` and `DATA_DIR`. On Windows, defaults to `%ProgramData%\omada-duckdns-updater` when `DATA_DIR` is unset; on other OSes defaults to `./updater.conf` (cwd).
+- **`config.go`**: Manages the `Config` struct and `updater.conf`. Uses `filepath.Join` and `DATA_DIR`. On Windows, defaults to `%ProgramData%\omada-duckdns-updater` when `DATA_DIR` is unset; on other OSes defaults to `./updater.conf` (cwd). Supports env overrides for `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, and `WEB_PASSWORD`.
+- **`crypto.go`**: bcrypt password hashing, per-install AES-GCM token encryption (`.encryption-key`), and legacy format migration.
 - **`updater.go`**: Contains the core business logic and API integrations:
   - Connects to the Omada OpenAPI to fetch access tokens (`getOmadaToken`).
   - Retrieves a list of available sites (`fetchSites`).
@@ -44,7 +45,7 @@ The application can run as a user-level or system systemd service.
 ## Developer & Agent Guidelines
 - **Thread Safety**: The `globalState` variable in `updater.go` is protected by a `sync.RWMutex`. Always use `.RLock()` for reads (especially in `web.go` before passing state to templates) and `.Lock()` for writes.
 - **Static Assets**: All CSS, JS, and HTML are embedded directly in `web.go` via a Go template string to keep deployment to a single binary simple.
-- **Dependencies**: Runtime logic uses the Go standard library plus `golang.org/x/sys` for Windows Service / Event Log support (build-tagged; Linux builds still work with the same module).
+- **Dependencies**: Runtime logic uses the Go standard library plus `golang.org/x/sys` (Windows Service / Event Log) and `golang.org/x/crypto/bcrypt` (web UI password hashing). Linux builds use the same module.
 - **Cross-compile**: `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build` or `./build-windows.sh amd64`.
 
 ### Go Doc Comments (Required for Code Changes)

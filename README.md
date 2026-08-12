@@ -5,9 +5,9 @@ A lightweight, zero-dependency Go application that dynamically fetches your WAN 
 It features a beautiful, built-in Web UI for easy configuration and a live status dashboard, removing the need to mess with command-line arguments or `.env` files.
 
 ## Features
-- 🚀 **Zero Runtime Dependencies**: Single Go binary (stdlib + minimal Windows service support via `golang.org/x/sys`).
+- 🚀 **Minimal Dependencies**: Single Go binary (stdlib + `golang.org/x/sys` for Windows services and `golang.org/x/crypto` for password hashing).
 - 📊 **Live Dashboard**: View the last run time, success/error status, and fetched IPs directly from the UI.
-- 🔒 **Basic Authentication**: Secure your Web UI with optional username and password protection.
+- 🔒 **Basic Authentication**: Secure your Web UI with optional username and password protection (bcrypt-hashed at rest).
 - ⏱️ **Dynamic Scheduling**: Update intervals are fully configurable from the Web UI—no need to restart the application.
 - 🌐 **Dual Stack**: Supports updating both IPv4 and IPv6 addresses simultaneously.
 - 🔍 **Site Auto-Discovery**: Automatically fetches and lists your available Omada sites to prevent misconfiguration.
@@ -98,12 +98,37 @@ Pre-built Docker images are automatically published to the GitHub Container Regi
    ```
    *(This will automatically pull the latest image from GHCR and mount `updater.conf` as a volume to ensure your configuration persists).*
 
+   **Optional: environment secret overrides**
+
+   For GitOps or secret-manager workflows, you can supply API tokens and the Web UI password via environment variables instead of storing them in `updater.conf`:
+
+   | Variable | Effect |
+   |----------|--------|
+   | `OMADA_CLIENT_SECRET` | Overrides the Omada client secret from `updater.conf` at runtime |
+   | `DUCKDNS_TOKEN` | Overrides the DuckDNS token from `updater.conf` at runtime |
+   | `WEB_PASSWORD` | Overrides the Web UI password at runtime (plaintext in env only; never written to `updater.conf`) |
+
+   Copy `example.env` to `.env`, set restrictive permissions, replace the placeholder values, then start the stack:
+
+   ```bash
+   cp example.env .env
+   chmod 600 .env
+   # edit .env with your secrets
+   docker compose up -d
+   ```
+
+   `WEB_USERNAME` must still be set in `updater.conf` (via the Web UI) for Basic Auth to be enabled. Only the password can be overridden via `WEB_PASSWORD`.
+
 2. **Run using Docker CLI:**
    ```bash
+   cp example.env .env
+   chmod 600 .env
+   # edit .env with your secrets (OMADA_CLIENT_SECRET, DUCKDNS_TOKEN, WEB_PASSWORD)
    docker run -d \
      --name omada-ddns \
      -p 5381:5381 \
      -e DATA_DIR=/data \
+     --env-file .env \
      -v omada-data:/data \
      ghcr.io/kbipinkumar/omada-duckdns-updater:latest
    ```
@@ -114,14 +139,26 @@ If you are modifying the code and want to build the Docker image locally:
 
 1. **Using Docker Compose:**
    ```bash
+   cp example.env .env   # optional: add secret overrides
+   chmod 600 .env
+   # edit .env with your secrets
    docker compose -f docker-compose.dev.yml up -d --build
    ```
+
+   `docker-compose.dev.yml` supports the same optional `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, and `WEB_PASSWORD` environment overrides as the production compose file.
 
 2. **Using the Build Wrapper:**
    We also provide a wrapper script that automatically tags your locally built image with the correct Git version.
    ```bash
    ./build-docker.sh
-   docker run -d -p 5381:5381 -e DATA_DIR=/data -v omada-data:/data omada-duckdns-updater:latest
+   cp example.env .env
+   chmod 600 .env
+   # edit .env with your secrets (OMADA_CLIENT_SECRET, DUCKDNS_TOKEN, WEB_PASSWORD)
+   docker run -d -p 5381:5381 \
+     -e DATA_DIR=/data \
+     --env-file .env \
+     -v omada-data:/data \
+     omada-duckdns-updater:latest
    ```
 
 ### Method 6: Windows (Desktop or Server)
@@ -184,6 +221,28 @@ Once the service is running, open your web browser and navigate to:
 6. **Run:** Click **Run Now** to force an immediate DuckDNS update (or wait for the scheduled interval).
 
 Check the **Status Dashboard** at the top of the page to verify that the IPs were fetched and DuckDNS was updated successfully!
+
+---
+
+## Security Notes
+
+- **Web UI passwords** are stored as bcrypt hashes in `updater.conf`. If you upgraded from an older release that used salted SHA-256, clear `WEB_PASSWORD` in `updater.conf` and set a new password via the Web UI (see Troubleshooting).
+- **API tokens** (`OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`) are encrypted at rest using AES-GCM with a per-install key stored in `.encryption-key` inside the data directory. Legacy configs encrypted with the old built-in key are migrated automatically on load.
+- **Config file permissions**: `updater.conf` and `.encryption-key` are written with mode `0600` on Unix.
+- **Environment overrides** (optional, for Docker/GitOps): set `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, or `WEB_PASSWORD` to override file values at runtime. `WEB_PASSWORD` in the environment is plaintext and is never written back to `updater.conf`. See **Method 4: Docker** above for Compose and `.env` usage.
+
+Example Docker CLI override using `.env` file:
+
+```bash
+cp example.env .env
+chmod 600 .env
+# edit .env with your secrets (OMADA_CLIENT_SECRET, DUCKDNS_TOKEN, WEB_PASSWORD)
+docker run -d \
+  -e DATA_DIR=/data \
+  --env-file .env \
+  -v omada-data:/data \
+  ghcr.io/kbipinkumar/omada-duckdns-updater:latest
+```
 
 ---
 
