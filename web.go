@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const uiTemplate = `
@@ -642,15 +644,33 @@ func handleApiSites(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(sites)
 }
 
-func startWebServer() {
-	http.HandleFunc("/", basicAuth(handleIndex))
-	http.HandleFunc("/save", basicAuth(handleSave))
-	http.HandleFunc("/run", basicAuth(handleRun))
-	http.HandleFunc("/api/sites", basicAuth(handleApiSites))
+func startWebServer(ctx context.Context) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", basicAuth(handleIndex))
+	mux.HandleFunc("/save", basicAuth(handleSave))
+	mux.HandleFunc("/run", basicAuth(handleRun))
+	mux.HandleFunc("/api/sites", basicAuth(handleApiSites))
 
 	port := "5381"
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("Web server shutdown error: %v", err)
+		}
+	}()
+
 	log.Printf("Starting Web UI on http://localhost:%s\n", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal(err)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("Web server error: %v", err)
 	}
 }

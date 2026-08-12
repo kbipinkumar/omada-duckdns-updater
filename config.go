@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -22,17 +24,46 @@ type Config struct {
 	WebUsername       string
 	WebPassword       string
 }
+
+// getDataDir returns the directory used for updater.conf (and related files).
+// DATA_DIR overrides the default. On Windows the default is
+// %ProgramData%\omada-duckdns-updater; elsewhere it is the current working directory.
+func getDataDir() string {
+	if dir := os.Getenv("DATA_DIR"); dir != "" {
+		return dir
+	}
+	if runtime.GOOS == "windows" {
+		programData := os.Getenv("ProgramData")
+		if programData == "" {
+			programData = `C:\ProgramData`
+		}
+		return filepath.Join(programData, "omada-duckdns-updater")
+	}
+	return ""
+}
+
 func getConfigFilePath() string {
-	dir := os.Getenv("DATA_DIR")
+	dir := getDataDir()
 	if dir != "" {
-		return dir + "/updater.conf"
+		return filepath.Join(dir, "updater.conf")
 	}
 	return "updater.conf"
+}
+
+func ensureDataDir() error {
+	dir := getDataDir()
+	if dir == "" {
+		return nil
+	}
+	return os.MkdirAll(dir, 0755)
 }
 
 func loadConfig() (*Config, error) {
 	// Default to updating IPv4 only
 	config := &Config{UpdateInterval: 5, UpdateIPv4: true, UpdateIPv6: false}
+	if err := ensureDataDir(); err != nil {
+		return nil, err
+	}
 	file, err := os.Open(getConfigFilePath())
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -91,6 +122,9 @@ func loadConfig() (*Config, error) {
 }
 
 func saveConfig(config *Config) error {
+	if err := ensureDataDir(); err != nil {
+		return err
+	}
 	file, err := os.Create(getConfigFilePath())
 	if err != nil {
 		return err

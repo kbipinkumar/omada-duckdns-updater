@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and Upload .deb Packages
+    name: Build and Upload Release Artifacts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -24,13 +24,16 @@ jobs:
           go-version: '1.21' # Standard Go version
 
       - name: Make scripts executable
-        run: chmod +x build-deb.sh
+        run: chmod +x build-deb.sh build-windows.sh
 
       - name: Build amd64 (Intel/AMD) Debian Package
         run: ./build-deb.sh amd64
 
       - name: Build arm64 (Raspberry Pi/ARM) Debian Package
         run: ./build-deb.sh arm64
+
+      - name: Build Windows amd64 Zip
+        run: ./build-windows.sh amd64
 
       - name: Extract Tag Name
         id: get_version
@@ -41,6 +44,7 @@ jobs:
         with:
           files: |
             *.deb
+            *_windows_*.zip
           name: Release ${{ env.VERSION }}
           draft: false
           prerelease: false

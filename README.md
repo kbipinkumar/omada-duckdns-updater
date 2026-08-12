@@ -5,12 +5,13 @@ A lightweight, zero-dependency Go application that dynamically fetches your WAN 
 It features a beautiful, built-in Web UI for easy configuration and a live status dashboard, removing the need to mess with command-line arguments or `.env` files.
 
 ## Features
-- 🚀 **Zero Dependencies**: Built entirely with Go's standard library. Single binary deployment.
+- 🚀 **Zero Runtime Dependencies**: Single Go binary (stdlib + minimal Windows service support via `golang.org/x/sys`).
 - 📊 **Live Dashboard**: View the last run time, success/error status, and fetched IPs directly from the UI.
 - 🔒 **Basic Authentication**: Secure your Web UI with optional username and password protection.
 - ⏱️ **Dynamic Scheduling**: Update intervals are fully configurable from the Web UI—no need to restart the application.
 - 🌐 **Dual Stack**: Supports updating both IPv4 and IPv6 addresses simultaneously.
 - 🔍 **Site Auto-Discovery**: Automatically fetches and lists your available Omada sites to prevent misconfiguration.
+- 🪟 **Windows Service**: Native Windows Service install for Desktop and Server (alongside Linux systemd and Docker).
 
 ---
 
@@ -23,7 +24,7 @@ It features a beautiful, built-in Web UI for easy configuration and a live statu
 
 ## Installation & Deployment
 
-You can run `omada-duckdns-updater` either directly via Systemd or containerized via Docker.
+You can run `omada-duckdns-updater` on Linux (systemd or Docker), on Windows (native service or console), or via Docker Desktop on Windows using the existing Linux images.
 
 ### Method 1: Debian Package (.deb) (Recommended for Debian/Ubuntu)
 
@@ -123,6 +124,47 @@ If you are modifying the code and want to build the Docker image locally:
    docker run -d -p 5381:5381 -e DATA_DIR=/data -v omada-data:/data omada-duckdns-updater:latest
    ```
 
+### Method 6: Windows (Desktop or Server)
+
+Pre-built Windows zip archives are published on GitHub Releases (`omada-duckdns-updater_*_windows_amd64.zip`).
+
+1. **Download and extract** the Windows zip from the [Releases](https://github.com/kbipinkumar/omada-duckdns-updater/releases) page.
+2. **Install as a Windows Service** (Administrator PowerShell):
+   ```powershell
+   Set-ExecutionPolicy -Scope Process Bypass
+   .\install-windows.ps1
+   ```
+   This copies the binary to `C:\Program Files\omada-duckdns-updater\`, creates `%ProgramData%\omada-duckdns-updater\` for config/logs, opens inbound TCP **5381** on Domain/Private (Public only if confirmed or `-AllowPublicFirewall`), and installs/starts the `OmadaDuckDNSUpdater` service.
+3. **Uninstall:**
+   ```powershell
+   .\uninstall-windows.ps1
+   # Keep config/logs:
+   .\uninstall-windows.ps1 -KeepData
+   ```
+4. **Manual / console run** (development or testing, no service):
+   ```powershell
+   .\omada-duckdns-updater.exe
+   ```
+5. **Service management:**
+   ```powershell
+   Get-Service OmadaDuckDNSUpdater
+   Restart-Service OmadaDuckDNSUpdater
+   # Or via the binary:
+   & "C:\Program Files\omada-duckdns-updater\omada-duckdns-updater.exe" -service stop
+   & "C:\Program Files\omada-duckdns-updater\omada-duckdns-updater.exe" -service start
+   ```
+6. **Paths:**
+   - Config: `%ProgramData%\omada-duckdns-updater\updater.conf`
+   - Log file: `%ProgramData%\omada-duckdns-updater\updater.log`
+   - Event Log source: `OmadaDuckDNSUpdater`
+7. **Firewall:** the installer adds an inbound allow rule for TCP 5381 on the **Domain** and **Private** profiles. Include Public only via the interactive prompt or `-AllowPublicFirewall`. For a custom setup, allow that port so the Web UI is reachable.
+8. **Docker Desktop on Windows:** use the existing Linux GHCR image (Linux containers / WSL2) with the same `docker compose` / `docker run` commands as on Linux. There is no separate Windows container image.
+
+To cross-compile a Windows zip from a Linux/macOS machine:
+```bash
+./build-windows.sh amd64
+```
+
 ---
 
 ## Usage & Configuration
@@ -146,7 +188,10 @@ Check the **Status Dashboard** at the top of the page to verify that the IPs wer
 
 - **Error: Gateway not found**: Ensure you have selected the correct Site ID in the dropdown. The gateway must be adopted in the selected site.
 - **Error: Configuration is missing required fields**: Make sure you have clicked "Save Configuration" before attempting a run.
-- **Forgotten Web UI Password**: SSH into your server, manually edit the `updater.conf`, and clear the `WEB_USERNAME` and `WEB_PASSWORD` lines, and restart the servicedocker container.
+- **Forgotten Web UI Password**: Edit `updater.conf` and clear the `WEB_USERNAME` and `WEB_PASSWORD` lines, then restart the service or container.
+  - Linux systemd: edit the file next to the binary (or under `$DATA_DIR`) and `systemctl restart` / `systemctl --user restart` the unit.
+  - Docker: edit the file in the mounted data volume and restart the container.
+  - Windows: edit `%ProgramData%\omada-duckdns-updater\updater.conf`, then `Restart-Service OmadaDuckDNSUpdater`.
 
 ---
 
