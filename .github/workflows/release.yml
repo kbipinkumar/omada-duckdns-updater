@@ -35,6 +35,9 @@ jobs:
       - name: Build Windows amd64 Zip
         run: ./build-windows.sh amd64
 
+      - name: Build Windows arm64 Zip
+        run: ./build-windows.sh arm64
+
       - name: Extract Tag Name
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV

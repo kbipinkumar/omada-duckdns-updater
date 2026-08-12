@@ -1,10 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
-# Cross-compile Windows amd64 release zip from Linux/macOS CI or a dev machine.
+# Cross-compile Windows release zips (amd64 or arm64) from Linux/macOS CI or a dev machine.
 # Usage: ./build-windows.sh [amd64|arm64]
 
 GOARCH=${1:-amd64}
+case "${GOARCH}" in
+  amd64|arm64) ;;
+  *)
+    echo "Unsupported GOARCH '${GOARCH}'. Use amd64 or arm64." >&2
+    exit 1
+    ;;
+esac
+
 PKG_NAME="omada-duckdns-updater"
 GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "dev")
 VERSION=${GIT_TAG#v}
