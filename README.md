@@ -126,7 +126,8 @@ If you are modifying the code and want to build the Docker image locally:
 
 ### Method 6: Windows (Desktop or Server)
 
-Pre-built Windows zip archives are published on GitHub Releases (`omada-duckdns-updater_*_windows_amd64.zip`).
+Pre-built Windows zip archives are published on GitHub Releases for both architectures:
+`omada-duckdns-updater_*_windows_amd64.zip` (x64) and `omada-duckdns-updater_*_windows_arm64.zip` (Windows on Arm). Download the zip that matches your machine.
 
 1. **Download and extract** the Windows zip from the [Releases](https://github.com/kbipinkumar/omada-duckdns-updater/releases) page.
 2. **Install as a Windows Service** (Administrator PowerShell):
@@ -163,6 +164,7 @@ Pre-built Windows zip archives are published on GitHub Releases (`omada-duckdns-
 To cross-compile a Windows zip from a Linux/macOS machine:
 ```bash
 ./build-windows.sh amd64
+./build-windows.sh arm64
 ```
 
 ---
