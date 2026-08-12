@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -26,7 +27,36 @@ type UpdateState struct {
 	LastWarning string
 }
 
+// StateView is a lock-free snapshot of UpdateState for template rendering.
+type StateView struct {
+	LastRunTime        time.Time
+	LastIPv4           string
+	LastIPv6           string
+	LastIPv4UpdateTime time.Time
+	LastIPv6UpdateTime time.Time
+	LastStatus         string
+	LastError          string
+	LastWarning        string
+}
+
 var globalState UpdateState
+
+var ErrWANDown = errors.New("WAN_DOWN")
+
+func snapshotState() StateView {
+	globalState.RLock()
+	defer globalState.RUnlock()
+	return StateView{
+		LastRunTime:        globalState.LastRunTime,
+		LastIPv4:           globalState.LastIPv4,
+		LastIPv6:           globalState.LastIPv6,
+		LastIPv4UpdateTime: globalState.LastIPv4UpdateTime,
+		LastIPv6UpdateTime: globalState.LastIPv6UpdateTime,
+		LastStatus:         globalState.LastStatus,
+		LastError:          globalState.LastError,
+		LastWarning:        globalState.LastWarning,
+	}
+}
 
 func isPublicIP(ipStr string) (bool, string) {
 	if ipStr == "" {
@@ -175,7 +205,7 @@ func getGatewayWAN(config *Config, token string) (ipv4, ipv6 string, err error) 
 			ipv4Empty := (port.IP == "" || port.IP == "0.0.0.0")
 			ipv6Empty := (port.WanPortIpv6Config.Addr == "" || port.WanPortIpv6Config.Addr == "::")
 			if ipv4Empty && ipv6Empty {
-				return "", "", fmt.Errorf("WAN_DOWN")
+				return "", "", ErrWANDown
 			}
 			return port.IP, port.WanPortIpv6Config.Addr, nil
 		}
@@ -273,7 +303,7 @@ func runUpdate(force bool) error {
 
 	ipv4, ipv6, err := getGatewayWAN(config, token)
 	if err != nil {
-		if err.Error() == "WAN_DOWN" {
+		if errors.Is(err, ErrWANDown) {
 			globalState.LastStatus = "Skipped (WAN Down)"
 			globalState.LastError = ""
 			globalState.LastWarning = "WAN interface is down or has no IP from ISP."

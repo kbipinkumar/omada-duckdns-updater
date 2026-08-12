@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -252,6 +253,10 @@ const uiTemplate = `
             padding: 0 1rem;
             white-space: nowrap;
         }
+
+        #wanPreviewPanel {
+            margin-top: 1.5rem;
+        }
     </style>
 </head>
 <body>
@@ -383,14 +388,168 @@ const uiTemplate = `
                 </div>
             </div>
 
+            <div id="wanPreviewPanel" class="dashboard" style="display: none;">
+                <h2>WAN IP Preview</h2>
+                <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0 0 1rem 0;">
+                    Review the WAN addresses retrieved from your Omada controller before saving configuration.
+                </p>
+                <div class="dash-grid">
+                    <div class="dash-card">
+                        <div class="dash-label">WAN IPv4</div>
+                        <div class="dash-value" id="previewIPv4">N/A</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-label">WAN IPv6</div>
+                        <div class="dash-value" id="previewIPv6">N/A</div>
+                    </div>
+                </div>
+                <div id="previewWarnings" class="dash-warning" style="display: none;"></div>
+                <div id="previewError" class="dash-error" style="display: none;"></div>
+            </div>
+
 			<div class="actions">
+            {{if .IsFirstRun}}
+            	<button type="button" class="btn-secondary" id="verifyBtn" onclick="verifyConnection()">Verify Connection</button>
+            	<button type="submit" id="confirmSaveBtn" style="display: none;">Confirm &amp; Save Configuration</button>
+            {{else}}
             	<button type="submit">Save Configuration</button>
             	<button type="button" class="btn-secondary" onclick="runNow()">Run Now</button>
+            {{end}}
             </div>
         </form>
     </div>
     
     <script>
+    const isFirstRun = {{if .IsFirstRun}}true{{else}}false{{end}};
+    let verifyCompleted = false;
+
+    function resetVerifyState() {
+        verifyCompleted = false;
+        const confirmBtn = document.getElementById('confirmSaveBtn');
+        if (confirmBtn) {
+            confirmBtn.style.display = 'none';
+        }
+        const panel = document.getElementById('wanPreviewPanel');
+        if (panel) {
+            panel.style.display = 'none';
+        }
+        const warnings = document.getElementById('previewWarnings');
+        const error = document.getElementById('previewError');
+        if (warnings) {
+            warnings.style.display = 'none';
+            warnings.textContent = '';
+        }
+        if (error) {
+            error.style.display = 'none';
+            error.textContent = '';
+        }
+    }
+
+    function setupFirstRunListeners() {
+        if (!isFirstRun) return;
+        const fields = ['OmadaURL', 'OmadaClientID', 'OmadaClientSecret', 'OmadaOmadacID', 'OmadaSiteID'];
+        const form = document.getElementById('configForm');
+        if (form) {
+            const handler = function(e) {
+                if (e.target && fields.indexOf(e.target.id) !== -1) {
+                    resetVerifyState();
+                }
+            };
+            form.addEventListener('input', handler);
+            form.addEventListener('change', handler);
+            form.addEventListener('submit', function(e) {
+                if (!verifyCompleted) {
+                    e.preventDefault();
+                    alert('Please verify the connection and review WAN IPs before saving.');
+                }
+            });
+        }
+    }
+
+    function verifyConnection() {
+        const btn = document.getElementById('verifyBtn');
+        const url = document.getElementById('OmadaURL').value;
+        const clientId = document.getElementById('OmadaClientID').value;
+        const clientSecret = document.getElementById('OmadaClientSecret').value;
+        const omadacId = document.getElementById('OmadaOmadacID').value;
+        const siteId = document.getElementById('OmadaSiteID').value;
+        const updateIPv4 = document.querySelector('input[name="UpdateIPv4"]').checked;
+        const updateIPv6 = document.querySelector('input[name="UpdateIPv6"]').checked;
+
+        if (!url || !clientId || !clientSecret || !omadacId || !siteId) {
+            alert('Please fill in all Omada fields including Site ID before verifying.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = 'Verifying...';
+        resetVerifyState();
+
+        const payload = {
+            OmadaURL: url,
+            OmadaClientID: clientId,
+            OmadaClientSecret: clientSecret,
+            OmadaOmadacID: omadacId,
+            OmadaSiteID: siteId,
+            UpdateIPv4: updateIPv4,
+            UpdateIPv6: updateIPv6
+        };
+
+        fetch('/api/wan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(r => {
+            if (!r.ok) return r.text().then(t => { throw new Error(t); });
+            return r.json();
+        })
+        .then(data => {
+            const panel = document.getElementById('wanPreviewPanel');
+            const ipv4El = document.getElementById('previewIPv4');
+            const ipv6El = document.getElementById('previewIPv6');
+            const warningsEl = document.getElementById('previewWarnings');
+            const errorEl = document.getElementById('previewError');
+
+            panel.style.display = 'block';
+            ipv4El.textContent = data.ipv4 || 'N/A';
+            ipv6El.textContent = data.ipv6 || 'N/A';
+
+            if (data.warnings && data.warnings.length > 0) {
+                warningsEl.style.display = 'block';
+                warningsEl.textContent = '';
+                const wLabel = document.createElement('strong');
+                wLabel.textContent = 'Warnings:';
+                warningsEl.appendChild(wLabel);
+                warningsEl.appendChild(document.createTextNode(' ' + data.warnings.join(' | ')));
+            }
+
+            verifyCompleted = true;
+            const confirmBtn = document.getElementById('confirmSaveBtn');
+            if (confirmBtn) {
+                confirmBtn.style.display = 'block';
+            }
+
+            btn.disabled = false;
+            btn.innerText = 'Verify Connection';
+        })
+        .catch(e => {
+            const panel = document.getElementById('wanPreviewPanel');
+            const errorEl = document.getElementById('previewError');
+            panel.style.display = 'block';
+            errorEl.style.display = 'block';
+            errorEl.textContent = '';
+            const eLabel = document.createElement('strong');
+            eLabel.textContent = 'Verification failed:';
+            errorEl.appendChild(eLabel);
+            errorEl.appendChild(document.createTextNode(' ' + e.message));
+            btn.disabled = false;
+            btn.innerText = 'Verify Connection';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', setupFirstRunListeners);
+
     function runNow() {
         const form = document.getElementById('configForm');
         const formData = new URLSearchParams(new FormData(form));
@@ -486,11 +645,20 @@ const uiTemplate = `
 var tmpl = template.Must(template.New("ui").Parse(uiTemplate))
 
 type PageData struct {
-	Config  *Config
-	Message string
-	Error   bool
-	State   UpdateState
-	Version string
+	Config     *Config
+	Message    string
+	Error      bool
+	State      StateView
+	Version    string
+	IsFirstRun bool
+}
+
+type WanPreviewResponse struct {
+	IPv4       string   `json:"ipv4"`
+	IPv6       string   `json:"ipv6"`
+	IPv4Public bool     `json:"ipv4Public"`
+	IPv6Public bool     `json:"ipv6Public"`
+	Warnings   []string `json:"warnings"`
 }
 
 // BasicAuth middleware
@@ -515,14 +683,11 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		config = &Config{UpdateInterval: 5}
 	}
 
-	globalState.RLock()
-	stateCopy := globalState
-	globalState.RUnlock()
-
 	data := PageData{
-		Config:  config,
-		State:   stateCopy,
-		Version: version,
+		Config:     config,
+		State:      snapshotState(),
+		Version:    version,
+		IsFirstRun: isFirstRun(config),
 	}
 	tmpl.Execute(w, data)
 }
@@ -577,15 +742,12 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := saveConfig(config)
-	
-	globalState.RLock()
-	stateCopy := globalState
-	globalState.RUnlock()
 
 	data := PageData{
-		Config:  config,
-		State:   stateCopy,
-		Version: version,
+		Config:     config,
+		State:      snapshotState(),
+		Version:    version,
+		IsFirstRun: isFirstRun(config),
 	}
 	
 	if err != nil {
@@ -644,12 +806,78 @@ func handleApiSites(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(sites)
 }
 
+func handleApiWan(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var reqConfig Config
+	if err := json.NewDecoder(r.Body).Decode(&reqConfig); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid request: %v", err)
+		return
+	}
+
+	if reqConfig.OmadaURL == "" || reqConfig.OmadaClientID == "" ||
+		reqConfig.OmadaClientSecret == "" || reqConfig.OmadaOmadacID == "" ||
+		reqConfig.OmadaSiteID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Missing required Omada fields (URL, Client ID, Secret, Omadac ID, Site ID)")
+		return
+	}
+
+	token, err := getOmadaToken(&reqConfig)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to authenticate with Omada: %v", err)
+		return
+	}
+
+	ipv4, ipv6, err := getGatewayWAN(&reqConfig, token)
+	if err != nil {
+		if errors.Is(err, ErrWANDown) {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "WAN interface is down or has no IP from ISP")
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to fetch WAN status: %v", err)
+		return
+	}
+
+	response := WanPreviewResponse{
+		IPv4: ipv4,
+		IPv6: ipv6,
+	}
+
+	if ipv4 != "" {
+		if ok, reason := isPublicIP(ipv4); ok {
+			response.IPv4Public = true
+		} else {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("IPv4 ignored (%s)", reason))
+		}
+	}
+
+	if ipv6 != "" {
+		if ok, reason := isPublicIP(ipv6); ok {
+			response.IPv6Public = true
+		} else {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("IPv6 ignored (%s)", reason))
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func startWebServer(ctx context.Context) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", basicAuth(handleIndex))
 	mux.HandleFunc("/save", basicAuth(handleSave))
 	mux.HandleFunc("/run", basicAuth(handleRun))
 	mux.HandleFunc("/api/sites", basicAuth(handleApiSites))
+	mux.HandleFunc("/api/wan", basicAuth(handleApiWan))
 
 	port := "5381"
 	server := &http.Server{

@@ -180,7 +180,8 @@ Once the service is running, open your web browser and navigate to:
 4. **System Settings:** 
    - Set your preferred **Update Interval** (default is 5 minutes).
    - Enter a **Web UI Username** and **Password** to secure the dashboard. (Once saved, the page will instantly require these credentials).
-5. **Save & Run:** Click **Save Configuration**, and then click **Run Now** to force an immediate update.
+5. **First-time setup:** On the first visit (before configuration is saved), click **Verify Connection** to fetch WAN IPv4/IPv6 from your Omada controller and review them in the preview panel. When the addresses look correct, click **Confirm & Save Configuration**.
+6. **Run:** Click **Run Now** to force an immediate DuckDNS update (or wait for the scheduled interval).
 
 Check the **Status Dashboard** at the top of the page to verify that the IPs were fetched and DuckDNS was updated successfully!
 

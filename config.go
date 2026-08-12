@@ -50,6 +50,15 @@ func getConfigFilePath() string {
 	return "updater.conf"
 }
 
+func configFileExists() bool {
+	_, err := os.Stat(getConfigFilePath())
+	return err == nil
+}
+
+func isFirstRun(config *Config) bool {
+	return !configFileExists() || config.OmadaURL == ""
+}
+
 func ensureDataDir() error {
 	dir := getDataDir()
 	if dir == "" {
