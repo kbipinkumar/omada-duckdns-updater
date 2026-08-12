@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -76,14 +77,22 @@ func checkLegacySHA256Password(password, storedHash string) bool {
 	if err != nil {
 		return false
 	}
+	expected, err := hex.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
 	hash := computeSHA256Hash(password, salt)
-	return hex.EncodeToString(hash) == parts[1]
+	if len(hash) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare(hash, expected) == 1
 }
 
 // computeSHA256Hash returns the salted SHA-256 digest of password for legacy verification.
 func computeSHA256Hash(password string, salt []byte) []byte {
 	h := sha256.New()
 	h.Write(salt)
+	// codeql[go/weak-sensitive-data-hashing]: Legacy salted SHA-256 verification only; new passwords use bcrypt.
 	h.Write([]byte(password))
 	return h.Sum(nil)
 }
