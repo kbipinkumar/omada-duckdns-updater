@@ -373,7 +373,7 @@ const uiTemplate = `
         <h1>Omada DuckDNS Updater <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">{{.Version}}</span></h1>
 
         <div class="dashboard">
-            <h2>Status Dashboard</h2>
+            <h2>Status</h2>
             <div class="dash-grid dash-grid--wide">
                 <div class="dash-card">
                     <div class="dash-label">Last Update</div>
