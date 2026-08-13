@@ -11,11 +11,11 @@ import (
 func TestDescribeConfig(t *testing.T) {
 	complete := &Config{
 		OmadaURL:          "https://192.168.1.1:8043",
-		OmadaClientID:     "client-id",
-		OmadaClientSecret: "secret",
-		OmadaOmadacID:     "omadac-id",
+		OmadaClientID:     "client-id-value",
+		OmadaClientSecret: "client-secret-value",
+		OmadaOmadacID:     "omadac-id-value",
 		OmadaSiteID:       "site-123",
-		DuckDNSToken:      "duck-token",
+		DuckDNSToken:      "duck-token-value",
 		DuckDNSDomain:     "example.duckdns.org",
 		UpdateIPv4:        true,
 		UpdateInterval:    10,
@@ -32,14 +32,40 @@ func TestDescribeConfig(t *testing.T) {
 			t.Fatalf("describeConfig() = %q, want substring %q", summary, want)
 		}
 	}
-	if strings.Contains(summary, "client-id") || strings.Contains(summary, "duck-token") {
-		t.Fatalf("describeConfig() leaked secret values: %q", summary)
+	for _, secret := range []string{
+		"client-id-value",
+		"client-secret-value",
+		"omadac-id-value",
+		"duck-token-value",
+	} {
+		if strings.Contains(summary, secret) {
+			t.Fatalf("describeConfig() leaked value %q in summary: %q", secret, summary)
+		}
 	}
 
 	incomplete := &Config{OmadaURL: "https://192.168.1.1:8043"}
 	summary = describeConfig(incomplete)
 	if !strings.Contains(summary, "missing=[") {
 		t.Fatalf("describeConfig() = %q, want missing fields listed", summary)
+	}
+}
+
+// TestSanitizeLogMessage verifies control characters are escaped in log output.
+func TestSanitizeLogMessage(t *testing.T) {
+	got := sanitizeLogMessage("line1\nforged\rrecord")
+	if got != `line1\nforged\rrecord` {
+		t.Fatalf("sanitizeLogMessage() = %q", got)
+	}
+}
+
+// TestSanitizeURLForLog verifies URL userinfo is removed before logging.
+func TestSanitizeURLForLog(t *testing.T) {
+	got := sanitizeURLForLog("https://admin:secret@192.168.1.1:8043")
+	if strings.Contains(got, "admin") || strings.Contains(got, "secret") {
+		t.Fatalf("sanitizeURLForLog() leaked credentials: %q", got)
+	}
+	if got != "https://192.168.1.1:8043" {
+		t.Fatalf("sanitizeURLForLog() = %q, want host-only URL", got)
 	}
 }
 
@@ -50,7 +76,11 @@ func TestInitLoggingCreatesLogFile(t *testing.T) {
 
 	closer := initLogging()
 	if closer != nil {
-		defer closer.Close()
+		t.Cleanup(func() {
+			if err := closer.Close(); err != nil {
+				t.Errorf("Close() error = %v", err)
+			}
+		})
 	}
 
 	logInfo("test log entry")

@@ -560,15 +560,9 @@ const uiTemplate = `
             method: 'POST',
             body: formData,
             headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-        }).then(() => {
-            return fetch('/run', {method: 'POST'});
         })
     	.then(r => {
             if (!r.ok) return r.text().then(t => { throw new Error(t); });
-            return r.text();
-        })
-    	.then(msg => {
-            alert(msg);
             window.location.reload();
         })
     	.catch(e => alert(e.message));
@@ -733,7 +727,31 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	duckDNSDomain := strings.Join(domains, ",")
 
 	newWebPassword := r.FormValue("WebPassword")
-	oldConfig, _ := loadConfig()
+	oldConfig, loadErr := loadConfig()
+	if loadErr != nil {
+		logError("web ui save failed to load existing configuration: %v", loadErr)
+		data := PageData{
+			Config: &Config{
+				OmadaURL:       strings.TrimSpace(r.FormValue("OmadaURL")),
+				OmadaClientID:  strings.TrimSpace(r.FormValue("OmadaClientID")),
+				OmadaOmadacID:  strings.TrimSpace(r.FormValue("OmadaOmadacID")),
+				OmadaSiteID:    strings.TrimSpace(r.FormValue("OmadaSiteID")),
+				DuckDNSDomain:  duckDNSDomain,
+				UpdateIPv4:     r.FormValue("UpdateIPv4") == "on",
+				UpdateIPv6:     r.FormValue("UpdateIPv6") == "on",
+				UpdateInterval: interval,
+				WebUsername:    r.FormValue("WebUsername"),
+			},
+			State:      snapshotState(),
+			Version:    version,
+			IsFirstRun: true,
+			Message:    "Failed to load existing configuration: " + loadErr.Error(),
+			Error:      true,
+		}
+		tmpl.Execute(w, data)
+		return
+	}
+
 	finalWebPassword := ""
 	finalClientSecret := strings.TrimSpace(r.FormValue("OmadaClientSecret"))
 	finalDuckDNSToken := strings.TrimSpace(r.FormValue("DuckDNSToken"))

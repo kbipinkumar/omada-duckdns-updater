@@ -318,7 +318,7 @@ func runUpdate(force bool) error {
 	if err != nil {
 		globalState.LastStatus = "Error"
 		globalState.LastError = "Failed to get omada token: " + err.Error()
-		logError("update failed to authenticate with Omada (site_id=%q url=%s): %v", config.OmadaSiteID, config.OmadaURL, err)
+		logError("update failed to authenticate with Omada (site_id=%q url=%s): %v", config.OmadaSiteID, sanitizeURLForLog(config.OmadaURL), err)
 		return fmt.Errorf("failed to get omada token: %v", err)
 	}
 

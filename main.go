@@ -102,7 +102,11 @@ func runApp(ctx context.Context) error {
 func runConsole() error {
 	closer := initLogging()
 	if closer != nil {
-		defer closer.Close()
+		defer func() {
+			if err := closer.Close(); err != nil {
+				log.Printf("failed to close log file: %v", err)
+			}
+		}()
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

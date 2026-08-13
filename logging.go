@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,10 +48,23 @@ func initLogging(extraWriters ...io.Writer) io.Closer {
 	}
 
 	writers = append(writers, extraWriters...)
-	log.SetOutput(io.MultiWriter(writers...))
+	log.SetOutput(bestEffortWriter{writers: writers})
 
 	log.Printf("[INFO] logging initialized (file=%s)", logPath)
 	return &logCloser{file: logFile, extra: extraWriters}
+}
+
+// bestEffortWriter writes to every sink and ignores individual sink failures.
+type bestEffortWriter struct {
+	writers []io.Writer
+}
+
+// Write duplicates p to each configured writer.
+func (w bestEffortWriter) Write(p []byte) (int, error) {
+	for _, writer := range w.writers {
+		_, _ = writer.Write(p)
+	}
+	return len(p), nil
 }
 
 // logCloser closes the log file opened by initLogging.
@@ -69,17 +83,35 @@ func (c *logCloser) Close() error {
 
 // logInfo writes an informational log line.
 func logInfo(format string, args ...interface{}) {
-	log.Printf("[INFO] "+format, args...)
+	log.Printf("[INFO] %s", sanitizeLogMessage(fmt.Sprintf(format, args...)))
 }
 
 // logWarn writes a warning log line.
 func logWarn(format string, args ...interface{}) {
-	log.Printf("[WARN] "+format, args...)
+	log.Printf("[WARN] %s", sanitizeLogMessage(fmt.Sprintf(format, args...)))
 }
 
 // logError writes an error log line.
 func logError(format string, args ...interface{}) {
-	log.Printf("[ERROR] "+format, args...)
+	log.Printf("[ERROR] %s", sanitizeLogMessage(fmt.Sprintf(format, args...)))
+}
+
+// sanitizeLogMessage escapes control characters to reduce log forging risk.
+func sanitizeLogMessage(message string) string {
+	return strings.NewReplacer("\r", `\r`, "\n", `\n`).Replace(message)
+}
+
+// sanitizeURLForLog returns a URL safe for logging with userinfo removed.
+func sanitizeURLForLog(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return "empty"
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "invalid-url"
+	}
+	parsed.User = nil
+	return parsed.String()
 }
 
 // describeConfig returns a safe summary of configuration state for troubleshooting.
