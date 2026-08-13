@@ -1,19 +1,21 @@
 post_install() {
-  systemctl daemon-reload
-  systemctl enable omada-duckdns-updater.service
-  systemctl restart omada-duckdns-updater.service
+  systemctl daemon-reload || return 1
+  systemctl enable omada-duckdns-updater.service || return 1
+  systemctl restart omada-duckdns-updater.service || return 1
   echo ""
   echo "Omada DuckDNS Updater installed. Web UI: http://<your-server-ip>:5381/"
   echo ""
 }
 
 post_upgrade() {
-  systemctl daemon-reload
+  restarted=0
+  systemctl daemon-reload || return 1
   if systemctl is-enabled --quiet omada-duckdns-updater.service || systemctl is-active --quiet omada-duckdns-updater.service; then
-    systemctl restart omada-duckdns-updater.service
+    systemctl restart omada-duckdns-updater.service || return 1
+    restarted=1
   fi
   echo ""
-  if systemctl is-enabled --quiet omada-duckdns-updater.service || systemctl is-active --quiet omada-duckdns-updater.service; then
+  if [ "$restarted" -eq 1 ]; then
     echo "Omada DuckDNS Updater upgraded and service restarted."
   else
     echo "Omada DuckDNS Updater upgraded (service left stopped because it is disabled)."
