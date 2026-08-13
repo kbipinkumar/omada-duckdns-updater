@@ -230,6 +230,7 @@ Check the **Status Dashboard** at the top of the page to verify that the IPs wer
 - **API tokens** (`OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`) are encrypted at rest using AES-GCM with a per-install key stored in `.encryption-key` inside the data directory. Legacy configs encrypted with the old built-in key are migrated automatically on load.
 - **Config file permissions**: `updater.conf` and `.encryption-key` are written with mode `0600` on Unix.
 - **Environment overrides** (optional, for Docker/GitOps): set `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, or `WEB_PASSWORD` to override file values at runtime. `WEB_PASSWORD` in the environment is plaintext and is never written back to `updater.conf`. See **Method 4: Docker** above for Compose and `.env` usage.
+- **Application logs**: Written to `updater.log` in the data directory (`DATA_DIR`, `%ProgramData%\omada-duckdns-updater` on Windows, or the working directory when unset) and mirrored to stderr. Logs include update cycle results and safe configuration summaries (secrets are never written in plaintext).
 
 Example Docker CLI override using `.env` file:
 
@@ -249,7 +250,7 @@ docker run -d \
 ## Troubleshooting
 
 - **Error: Gateway not found**: Ensure you have selected the correct Site ID in the dropdown. The gateway must be adopted in the selected site.
-- **Error: Configuration is missing required fields**: Make sure you have clicked "Save Configuration" before attempting a run. The status message lists which values are still missing (Omada Site ID, DuckDNS Token, etc.).
+- **Error: Configuration is missing required fields**: Make sure you have clicked "Save Configuration" before attempting a run. The status message lists which values are still missing (Omada Site ID, DuckDNS Token, etc.). Check `updater.log` in your data directory for a detailed configuration summary.
 - **Forgotten Web UI Password**: Edit `updater.conf` and clear the `WEB_USERNAME` and `WEB_PASSWORD` lines, then restart the service or container.
   - Linux systemd: edit the file next to the binary (or under `$DATA_DIR`) and `systemctl restart` / `systemctl --user restart` the unit.
   - Docker: edit the file in the mounted data volume and restart the container.

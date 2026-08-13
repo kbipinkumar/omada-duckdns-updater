@@ -767,6 +767,8 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 		WebPassword:       finalWebPassword,
 	}
 
+	logInfo("web ui save requested (%s)", describeConfig(config))
+
 	err := saveConfig(config)
 
 	data := PageData{
@@ -779,12 +781,14 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		data.Message = "Failed to save configuration: " + err.Error()
 		data.Error = true
+		logError("web ui save failed: %v (%s)", err, describeConfig(config))
 	} else {
 		data.Message = "Configuration saved successfully! It will be used on the next run."
 		data.Error = false
+		logInfo("web ui save successful (%s)", describeConfig(config))
 		if configIsComplete(config) {
 			if runErr := runUpdate(true); runErr != nil {
-				log.Printf("Post-save update failed: %v", runErr)
+				logError("post-save update failed: %v", runErr)
 			}
 			data.State = snapshotState()
 		}
@@ -799,12 +803,15 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	logInfo("web ui run now requested")
 	err := runUpdate(true)
 	if err != nil {
+		logError("web ui run now failed: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error running update: %v", err)
 		return
 	}
+	logInfo("web ui run now successful")
 	fmt.Fprintf(w, "Update successful!")
 }
 

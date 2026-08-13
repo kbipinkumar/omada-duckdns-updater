@@ -9,7 +9,7 @@ This file serves as a context and reference guide for AI assistants and develope
 - **`main.go`**: Entry point. Parses flags, optionally handles Windows `-service` commands, then runs `runApp` (web server + context-cancelled updater loop). Console mode uses SIGINT/SIGTERM.
 - **`doc.go`**: Package-level Go documentation for `go doc` and tooling.
 - **`config.go`**: Manages the `Config` struct and `updater.conf`. Uses `filepath.Join` and `DATA_DIR`. On Windows, defaults to `%ProgramData%\omada-duckdns-updater` when `DATA_DIR` is unset; on other OSes defaults to `./updater.conf` (cwd). Supports env overrides for `OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`, and `WEB_PASSWORD`.
-- **`crypto.go`**: bcrypt password hashing, per-install AES-GCM token encryption (`.encryption-key`), and legacy format migration.
+- **`logging.go`**: File-based application logging to `updater.log` (stderr + data directory). Safe `describeConfig()` summaries for troubleshooting without leaking secrets.
 - **`updater.go`**: Contains the core business logic and API integrations:
   - Connects to the Omada OpenAPI to fetch access tokens (`getOmadaToken`).
   - Retrieves a list of available sites (`fetchSites`).
@@ -39,7 +39,7 @@ The application can run as a user-level or system systemd service.
 - **Install dir**: `C:\Program Files\omada-duckdns-updater\`
 - **Data dir**: `%ProgramData%\omada-duckdns-updater\` (`updater.conf`, `updater.log`)
 - **Flags**: `-service install|uninstall|start|stop`
-- **Logs**: `%ProgramData%\omada-duckdns-updater\updater.log` and Windows Event Log source `OmadaDuckDNSUpdater`
+- **Logs**: `%ProgramData%\omada-duckdns-updater\updater.log` and Windows Event Log source `OmadaDuckDNSUpdater`. On Linux/Docker, see `updater.log` in the data directory (`DATA_DIR` or cwd).
 - **Commands**: `Get-Service OmadaDuckDNSUpdater`, `Restart-Service OmadaDuckDNSUpdater`
 
 ## Developer & Agent Guidelines

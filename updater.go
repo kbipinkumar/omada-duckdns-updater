@@ -297,16 +297,20 @@ func runUpdate(force bool) error {
 	globalState.LastRunTime = time.Now()
 	globalState.LastWarning = ""
 
+	logInfo("update cycle started (force=%t)", force)
+
 	config, err := loadConfig()
 	if err != nil {
 		globalState.LastStatus = "Error"
 		globalState.LastError = "Failed to load config: " + err.Error()
+		logError("update failed to load configuration: %v", err)
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
 	if missing := missingConfigFields(config); len(missing) > 0 {
 		globalState.LastStatus = "Error"
 		globalState.LastError = "Configuration is missing required fields: " + strings.Join(missing, ", ")
+		logError("update aborted: missing required fields [%s] (%s)", strings.Join(missing, ", "), describeConfig(config))
 		return fmt.Errorf("configuration is missing required fields: %s", strings.Join(missing, ", "))
 	}
 
@@ -314,6 +318,7 @@ func runUpdate(force bool) error {
 	if err != nil {
 		globalState.LastStatus = "Error"
 		globalState.LastError = "Failed to get omada token: " + err.Error()
+		logError("update failed to authenticate with Omada (site_id=%q url=%s): %v", config.OmadaSiteID, config.OmadaURL, err)
 		return fmt.Errorf("failed to get omada token: %v", err)
 	}
 
@@ -323,10 +328,12 @@ func runUpdate(force bool) error {
 			globalState.LastStatus = "Skipped (WAN Down)"
 			globalState.LastError = ""
 			globalState.LastWarning = "WAN interface is down or has no IP from ISP."
+			logWarn("update skipped: WAN interface is down or has no IP (site_id=%q)", config.OmadaSiteID)
 			return nil
 		}
 		globalState.LastStatus = "Error"
 		globalState.LastError = "Failed to get gateway WAN: " + err.Error()
+		logError("update failed to fetch gateway WAN (site_id=%q): %v", config.OmadaSiteID, err)
 		return fmt.Errorf("failed to get gateway WAN: %v", err)
 	}
 	
@@ -368,6 +375,7 @@ func runUpdate(force bool) error {
 			globalState.LastStatus = "Skipped"
 			globalState.LastError = ""
 			globalState.LastWarning = "Both IPv4 and IPv6 updates are disabled in configuration."
+			logInfo("update skipped: both IPv4 and IPv6 updates are disabled")
 			return nil
 		}
 		globalState.LastStatus = "Error"
@@ -376,6 +384,7 @@ func runUpdate(force bool) error {
 		} else {
 			globalState.LastError = "No IPs found on gateway"
 		}
+		logError("update failed: no usable public IPs (%s)", strings.Join(warnings, ", "))
 		return fmt.Errorf("no usable public IPs found")
 	}
 
@@ -387,6 +396,7 @@ func runUpdate(force bool) error {
 		} else {
 			globalState.LastWarning = ""
 		}
+		logInfo("update skipped: no public IP change (ipv4=%q ipv6=%q)", ipv4, ipv6)
 		return nil
 	}
 
@@ -394,6 +404,7 @@ func runUpdate(force bool) error {
 	if err != nil {
 		globalState.LastStatus = "Error"
 		globalState.LastError = "Failed to update duckdns: " + err.Error()
+		logError("update failed to update DuckDNS (ipv4=%q ipv6=%q domains=%q): %v", ipv4, ipv6, config.DuckDNSDomain, err)
 		return fmt.Errorf("failed to update duckdns: %v", err)
 	}
 
@@ -409,8 +420,10 @@ func runUpdate(force bool) error {
 	if len(warnings) > 0 {
 		globalState.LastStatus = "Success (with warnings)"
 		globalState.LastWarning = strings.Join(warnings, " | ")
+		logInfo("update finished with warnings (ipv4=%q ipv6=%q warnings=%q)", ipv4, ipv6, globalState.LastWarning)
 	} else {
 		globalState.LastStatus = "Success (OK)"
+		logInfo("update finished successfully (ipv4=%q ipv6=%q)", ipv4, ipv6)
 	}
 	return nil
 }

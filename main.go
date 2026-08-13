@@ -40,18 +40,20 @@ func main() {
 func runApp(ctx context.Context) error {
 	go startWebServer(ctx)
 
-	log.Println("Starting background updater...")
+	logInfo("background updater starting (version=%s data_dir=%q)", version, getDataDir())
 
 	// Initial run when configuration is complete.
 	if config, err := loadConfig(); err == nil && configIsComplete(config) {
-		log.Println("Running initial update...")
+		logInfo("running initial update (%s)", describeConfig(config))
 		if err := runUpdate(true); err != nil {
-			log.Printf("Initial update failed: %v", err)
+			logError("initial update failed: %v", err)
 		} else {
-			log.Println("Initial update successful.")
+			logInfo("initial update successful")
 		}
+	} else if err != nil {
+		logError("initial update skipped: failed to load configuration: %v", err)
 	} else {
-		log.Println("Config not found or incomplete. Please configure via Web UI.")
+		logInfo("initial update skipped: incomplete configuration (%s)", describeConfig(config))
 	}
 
 	ticker := time.NewTicker(30 * time.Second)
@@ -60,10 +62,14 @@ func runApp(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Shutting down updater...")
+			logInfo("shutting down updater")
 			return nil
 		case <-ticker.C:
-			config, _ := loadConfig()
+			config, err := loadConfig()
+			if err != nil {
+				logError("scheduled update check failed to load configuration: %v", err)
+				continue
+			}
 			interval := 5
 			if config != nil && config.UpdateInterval > 0 {
 				interval = config.UpdateInterval
@@ -74,6 +80,7 @@ func runApp(ctx context.Context) error {
 			globalState.RUnlock()
 
 			if config == nil || !configIsComplete(config) {
+				logIncompleteConfigThrottled(config)
 				continue
 			}
 
@@ -81,11 +88,11 @@ func runApp(ctx context.Context) error {
 				continue
 			}
 
-			log.Println("Timer triggered, running update...")
+			logInfo("timer triggered update (force=false interval=%dm %s)", interval, describeConfig(config))
 			if err := runUpdate(false); err != nil {
-				log.Printf("Update failed: %v", err)
+				logError("scheduled update failed: %v", err)
 			} else {
-				log.Println("Update successful.")
+				logInfo("scheduled update successful")
 			}
 		}
 	}
@@ -93,6 +100,11 @@ func runApp(ctx context.Context) error {
 
 // runConsole runs the app in the foreground until SIGINT/SIGTERM.
 func runConsole() error {
+	closer := initLogging()
+	if closer != nil {
+		defer closer.Close()
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	return runApp(ctx)

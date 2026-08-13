@@ -175,7 +175,9 @@ func loadConfig() (*Config, error) {
 	applyEnvOverrides(config)
 
 	if needsMigration {
+		logInfo("migrating configuration secrets to current encryption format (%s)", getConfigFilePath())
 		if err := saveConfig(config); err != nil {
+			logError("configuration migration failed: %v", err)
 			return config, err
 		}
 	}
@@ -271,7 +273,12 @@ func saveConfig(config *Config) error {
 		return err
 	}
 
-	return os.Rename(tempPath, configPath)
+	if err := os.Rename(tempPath, configPath); err != nil {
+		return err
+	}
+
+	logInfo("configuration saved to %s (%s)", configPath, describeConfig(config))
+	return nil
 }
 
 // DuckDNSDomains returns up to five configured DuckDNS domain names for the UI.
