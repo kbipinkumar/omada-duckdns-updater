@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,9 @@ import (
 	"time"
 )
 
+//go:embed icons/favicon-dns-nodes.svg
+var faviconSVG []byte
+
 // uiTemplate is the embedded HTML for the configuration and status dashboard.
 const uiTemplate = `
 <!DOCTYPE html>
@@ -21,6 +25,7 @@ const uiTemplate = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <title>DuckDNS Updater Config</title>
     <style>
         :root {
@@ -798,6 +803,13 @@ func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// handleFavicon serves the embedded SVG favicon.
+func handleFavicon(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(faviconSVG)
+}
+
 // handleIndex renders the configuration page and status dashboard.
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	config, err := loadConfig()
@@ -1045,6 +1057,7 @@ func handleApiWan(w http.ResponseWriter, r *http.Request) {
 // startWebServer serves the configuration UI until ctx is cancelled.
 func startWebServer(ctx context.Context) {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/favicon.svg", handleFavicon)
 	mux.HandleFunc("/", basicAuth(handleIndex))
 	mux.HandleFunc("/save", basicAuth(handleSave))
 	mux.HandleFunc("/run", basicAuth(handleRun))
