@@ -8,6 +8,7 @@ arch=('x86_64')
 url="https://github.com/kbipinkumar/omada-duckdns-updater"
 license=('GPL2')
 makedepends=('go' 'git')
+install=omada-duckdns-updater.install
 source=("omada-duckdns-updater::git+https://github.com/kbipinkumar/omada-duckdns-updater.git")
 sha256sums=('SKIP')
 

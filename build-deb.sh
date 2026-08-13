@@ -40,16 +40,22 @@ cat <<'EOF' > "${BUILD_DIR}/DEBIAN/postinst"
 set -e
 systemctl daemon-reload
 systemctl enable omada-duckdns-updater.service
-systemctl start omada-duckdns-updater.service
+systemctl restart omada-duckdns-updater.service
 
 echo ""
 echo "========================================================================"
+if [ -n "$2" ]; then
+echo " Omada DuckDNS Updater upgraded and service restarted "
+else
 echo " Omada DuckDNS Updater successfully installed and started in background "
+fi
 echo "========================================================================"
 echo " To complete setup, open your browser and navigate to:"
 echo " http://<your-server-ip>:5381/"
 echo ""
+if [ -z "$2" ]; then
 echo " Note: Configure it immediately to start syncing your IP to DuckDNS."
+fi
 echo "========================================================================"
 echo ""
 EOF
@@ -59,8 +65,10 @@ echo "Creating DEBIAN/prerm..."
 cat <<'EOF' > "${BUILD_DIR}/DEBIAN/prerm"
 #!/bin/sh
 set -e
-if [ "$1" = "remove" ]; then
+if [ "$1" = "remove" ] || [ "$1" = "upgrade" ]; then
     systemctl stop omada-duckdns-updater.service || true
+fi
+if [ "$1" = "remove" ]; then
     systemctl disable omada-duckdns-updater.service || true
 fi
 EOF

@@ -74,29 +74,42 @@ if (-not (Test-Path -LiteralPath $SourceExe)) {
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 
-# Stop/remove existing service before replacing the binary (Windows locks running exes)
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
-    if (Test-Path -LiteralPath $DestExe) {
-        if ($existing.Status -ne "Stopped") {
-            Write-Host "Stopping existing service..."
+    Write-Host "Upgrading existing installation..."
+    if ($existing.Status -ne "Stopped") {
+        if (Test-Path -LiteralPath $DestExe) {
+            Write-Host "Stopping service..."
             & $DestExe -service stop
-        }
-        Wait-ServiceStatusStopped -Name $ServiceName
-        Write-Host "Removing existing service registration..."
-        & $DestExe -service uninstall
-    } else {
-        if ($existing.Status -ne "Stopped") {
-            Write-Host "Stopping existing service via sc.exe..."
+        } else {
+            Write-Host "Stopping service via sc.exe..."
             sc.exe stop $ServiceName | Out-Null
         }
         Wait-ServiceStatusStopped -Name $ServiceName
-        Write-Host "Removing existing service via sc.exe..."
-        sc.exe delete $ServiceName | Out-Null
     }
-    Wait-ServiceRemoved -Name $ServiceName
+
+    Write-Host "Installing updated binary to $InstallDir ..."
+    Copy-Item -LiteralPath $SourceExe -Destination $DestExe -Force
+
+    Write-Host "Starting service..."
+    & $DestExe -service start
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Service start failed with exit code $LASTEXITCODE"
+    }
+
+    Write-Host ""
+    Write-Host "Upgrade complete."
+    Write-Host "  Service:    $ServiceName"
+    Write-Host "  Binary:     $DestExe"
+    Write-Host "  Config/log: $DataDir"
+    Write-Host "  Web UI:     http://localhost:5381/"
+    Write-Host ""
+    Write-Host "Manage with: Get-Service $ServiceName"
+    Write-Host "Logs:        $DataDir\updater.log  (also Windows Event Log source $ServiceName)"
+    exit 0
 }
 
+# Fresh install path
 Write-Host "Installing to $InstallDir ..."
 Copy-Item -LiteralPath $SourceExe -Destination $DestExe -Force
 

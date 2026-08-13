@@ -1,0 +1,20 @@
+post_install() {
+  systemctl daemon-reload
+  systemctl enable omada-duckdns-updater.service
+  systemctl restart omada-duckdns-updater.service
+  echo ""
+  echo "Omada DuckDNS Updater installed. Web UI: http://<your-server-ip>:5381/"
+  echo ""
+}
+
+post_upgrade() {
+  systemctl daemon-reload
+  systemctl try-restart omada-duckdns-updater.service
+  echo ""
+  echo "Omada DuckDNS Updater upgraded and service restarted."
+  echo ""
+}
+
+post_remove() {
+  systemctl daemon-reload
+}
