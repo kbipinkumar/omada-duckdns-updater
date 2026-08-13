@@ -15,8 +15,8 @@ import (
 	"time"
 )
 
-//go:embed icons/favicon-dns-nodes.svg
-var faviconSVG []byte
+//go:embed icons/app-logo.png
+var appLogoPNG []byte
 
 // uiTemplate is the embedded HTML for the configuration and status dashboard.
 const uiTemplate = `
@@ -25,7 +25,7 @@ const uiTemplate = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <title>DuckDNS Updater Config</title>
     <style>
         :root {
@@ -64,14 +64,41 @@ const uiTemplate = `
         }
 
         h1 {
-            margin-top: 0;
+            margin: 0;
             font-size: 1.5rem;
             font-weight: 600;
-            text-align: center;
-            margin-bottom: 2rem;
             background: linear-gradient(to right, #60a5fa, #a78bfa);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+        }
+
+        .app-logo {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border-radius: 0.5rem;
+        }
+
+        .app-title {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.125rem;
+        }
+
+        .app-version {
+            font-size: 0.8rem;
+            font-weight: normal;
+            color: var(--text-muted);
+            -webkit-text-fill-color: var(--text-muted);
         }
 
         /* Dashboard Styles */
@@ -359,6 +386,19 @@ const uiTemplate = `
                 padding: 1.5rem;
             }
 
+            .app-header {
+                gap: 0.5rem;
+            }
+
+            .app-logo {
+                width: 32px;
+                height: 32px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+            }
+
             .dash-grid--wide {
                 grid-template-columns: 1fr;
             }
@@ -375,7 +415,13 @@ const uiTemplate = `
 </head>
 <body>
     <div class="container">
-        <h1>Omada DuckDNS Updater <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">{{.Version}}</span></h1>
+        <header class="app-header">
+            <img src="/logo.png" alt="" class="app-logo" width="40" height="40">
+            <div class="app-title">
+                <h1>Omada DuckDNS Updater</h1>
+                <span class="app-version">{{.Version}}</span>
+            </div>
+        </header>
 
         <div class="dashboard">
             <h2>Status</h2>
@@ -803,11 +849,11 @@ func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// handleFavicon serves the embedded SVG favicon.
-func handleFavicon(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "image/svg+xml")
+// handleAppLogo serves the embedded PNG logo and favicon.
+func handleAppLogo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	w.Write(faviconSVG)
+	w.Write(appLogoPNG)
 }
 
 // handleIndex renders the configuration page and status dashboard.
@@ -1057,7 +1103,8 @@ func handleApiWan(w http.ResponseWriter, r *http.Request) {
 // startWebServer serves the configuration UI until ctx is cancelled.
 func startWebServer(ctx context.Context) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/favicon.svg", handleFavicon)
+	mux.HandleFunc("/favicon.png", handleAppLogo)
+	mux.HandleFunc("/logo.png", handleAppLogo)
 	mux.HandleFunc("/", basicAuth(handleIndex))
 	mux.HandleFunc("/save", basicAuth(handleSave))
 	mux.HandleFunc("/run", basicAuth(handleRun))
