@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,9 @@ import (
 	"time"
 )
 
+//go:embed icons/app-logo.png
+var appLogoPNG []byte
+
 // uiTemplate is the embedded HTML for the configuration and status dashboard.
 const uiTemplate = `
 <!DOCTYPE html>
@@ -21,6 +25,7 @@ const uiTemplate = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <title>DuckDNS Updater Config</title>
     <style>
         :root {
@@ -50,23 +55,51 @@ const uiTemplate = `
 
         .container {
             background-color: var(--surface);
-            padding: 2.5rem;
+            padding: 2rem;
             border-radius: 1rem;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.25);
             width: 100%;
-            max-width: 600px;
+            max-width: 1100px;
+            box-sizing: border-box;
             border: 1px solid var(--border);
         }
 
         h1 {
-            margin-top: 0;
+            margin: 0;
             font-size: 1.5rem;
             font-weight: 600;
-            text-align: center;
-            margin-bottom: 2rem;
             background: linear-gradient(to right, #60a5fa, #a78bfa);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+        }
+
+        .app-logo {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border-radius: 0.5rem;
+        }
+
+        .app-title {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.125rem;
+        }
+
+        .app-version {
+            font-size: 0.8rem;
+            font-weight: normal;
+            color: var(--text-muted);
+            -webkit-text-fill-color: var(--text-muted);
         }
 
         /* Dashboard Styles */
@@ -91,6 +124,10 @@ const uiTemplate = `
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 1rem;
+        }
+
+        .dash-grid--wide {
+            grid-template-columns: repeat(4, 1fr);
         }
 
         .dash-card {
@@ -137,12 +174,65 @@ const uiTemplate = `
         }
 
         /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-grid .form-section {
+            margin-bottom: 0;
+        }
+
         .form-section {
             background-color: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             padding: 1.5rem;
             border-radius: 0.5rem;
             margin-bottom: 1.5rem;
+        }
+
+        .form-section--compact {
+            margin-bottom: 1.5rem;
+        }
+
+        .system-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .system-fields .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-section .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .domain-input + .domain-input {
+            margin-top: 0.5rem;
+        }
+
+        .checkbox-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 0.5rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        .checkbox-label input {
+            width: auto;
+            margin: 0;
         }
 
         .form-section-title {
@@ -185,7 +275,6 @@ const uiTemplate = `
         }
 
         button {
-            width: 100%;
             padding: 0.875rem;
             background-color: var(--primary);
             color: white;
@@ -230,6 +319,12 @@ const uiTemplate = `
         	display: flex;
         	gap: 1rem;
             margin-top: 1.5rem;
+            justify-content: flex-end;
+        }
+
+        .actions button {
+            flex: 1;
+            max-width: 220px;
         }
         
         .btn-secondary {
@@ -257,17 +352,81 @@ const uiTemplate = `
         }
 
         #wanPreviewPanel {
-            margin-top: 1.5rem;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dash-grid--wide {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .system-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .system-fields .form-group {
+                margin-bottom: 1.25rem;
+            }
+
+            .system-fields .form-group:last-child {
+                margin-bottom: 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+
+            .container {
+                padding: 1.5rem;
+            }
+
+            .app-header {
+                gap: 0.5rem;
+            }
+
+            .app-logo {
+                width: 32px;
+                height: 32px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+            }
+
+            .dash-grid--wide {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .actions button {
+                max-width: none;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Omada DuckDNS Updater <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">{{.Version}}</span></h1>
+        <header class="app-header">
+            <img src="/logo.png" alt="" class="app-logo" width="40" height="40">
+            <div class="app-title">
+                <h1>Omada DuckDNS Updater</h1>
+                <span class="app-version">{{.Version}}</span>
+            </div>
+        </header>
 
         <div class="dashboard">
-            <h2>Status Dashboard</h2>
-            <div class="dash-grid">
+            <h2>Status</h2>
+            <div class="dash-grid dash-grid--wide">
                 <div class="dash-card">
                     <div class="dash-label">Last Update</div>
                     <div class="dash-value">{{if .State.LastRunTime.IsZero}}Never{{else}}{{.State.LastRunTime.Format "2006-01-02 15:04:05"}}{{end}}</div>
@@ -312,7 +471,8 @@ const uiTemplate = `
         {{end}}
 
         <form method="POST" action="/save" id="configForm">
-            
+
+            <div class="form-grid">
             <div class="form-section">
                 <h3 class="form-section-title">Omada Configuration</h3>
                 <div class="form-group">
@@ -354,28 +514,30 @@ const uiTemplate = `
                 <div class="form-group">
                     <label>DuckDNS Domains (Up to 5)</label>
                     {{$domains := .Config.DuckDNSDomains}}
-                    <input type="text" name="DuckDNSDomain1" value="{{index $domains 0}}" placeholder="example1.duckdns.org" required style="margin-bottom: 0.5rem;">
-                    <input type="text" name="DuckDNSDomain2" value="{{index $domains 1}}" placeholder="example2.duckdns.org (Optional)" style="margin-bottom: 0.5rem;">
-                    <input type="text" name="DuckDNSDomain3" value="{{index $domains 2}}" placeholder="example3.duckdns.org (Optional)" style="margin-bottom: 0.5rem;">
-                    <input type="text" name="DuckDNSDomain4" value="{{index $domains 3}}" placeholder="example4.duckdns.org (Optional)" style="margin-bottom: 0.5rem;">
-                    <input type="text" name="DuckDNSDomain5" value="{{index $domains 4}}" placeholder="example5.duckdns.org (Optional)">
+                    <input type="text" class="domain-input" name="DuckDNSDomain1" value="{{index $domains 0}}" placeholder="example1.duckdns.org" required>
+                    <input type="text" class="domain-input" name="DuckDNSDomain2" value="{{index $domains 1}}" placeholder="example2.duckdns.org (Optional)">
+                    <input type="text" class="domain-input" name="DuckDNSDomain3" value="{{index $domains 2}}" placeholder="example3.duckdns.org (Optional)">
+                    <input type="text" class="domain-input" name="DuckDNSDomain4" value="{{index $domains 3}}" placeholder="example4.duckdns.org (Optional)">
+                    <input type="text" class="domain-input" name="DuckDNSDomain5" value="{{index $domains 4}}" placeholder="example5.duckdns.org (Optional)">
                 </div>
 
                 <div class="form-group">
                     <label>IP Protocols to Update</label>
-                    <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
-                            <input type="checkbox" name="UpdateIPv4" {{if .Config.UpdateIPv4}}checked{{end}} style="width: auto; margin: 0;"> Update IPv4
+                    <div class="checkbox-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="UpdateIPv4" {{if .Config.UpdateIPv4}}checked{{end}}> Update IPv4
                         </label>
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
-                            <input type="checkbox" name="UpdateIPv6" {{if .Config.UpdateIPv6}}checked{{end}} style="width: auto; margin: 0;"> Update IPv6
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="UpdateIPv6" {{if .Config.UpdateIPv6}}checked{{end}}> Update IPv6
                         </label>
                     </div>
                 </div>
             </div>
+            </div>
 
-            <div class="form-section">
+            <div class="form-section form-section--compact">
                 <h3 class="form-section-title">System Settings</h3>
+                <div class="system-fields">
                 <div class="form-group">
                     <label for="UpdateInterval">Update Interval (Minutes)</label>
                     <input type="number" id="UpdateInterval" name="UpdateInterval" value="{{.Config.UpdateInterval}}" min="1" required>
@@ -387,6 +549,7 @@ const uiTemplate = `
                 <div class="form-group">
                     <label for="WebPassword">Web UI Password (Optional)</label>
                     <input type="password" id="WebPassword" name="WebPassword" placeholder="{{if .Config.WebPassword}}(unchanged){{end}}">
+                </div>
                 </div>
             </div>
 
@@ -687,6 +850,13 @@ func basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// handleAppLogo serves the embedded PNG logo and favicon.
+func handleAppLogo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(appLogoPNG)
+}
+
 // handleIndex renders the configuration page and status dashboard.
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	config, err := loadConfig()
@@ -934,6 +1104,8 @@ func handleApiWan(w http.ResponseWriter, r *http.Request) {
 // startWebServer serves the configuration UI until ctx is cancelled.
 func startWebServer(ctx context.Context) {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/favicon.png", handleAppLogo)
+	mux.HandleFunc("/logo.png", handleAppLogo)
 	mux.HandleFunc("/", basicAuth(handleIndex))
 	mux.HandleFunc("/save", basicAuth(handleSave))
 	mux.HandleFunc("/run", basicAuth(handleRun))

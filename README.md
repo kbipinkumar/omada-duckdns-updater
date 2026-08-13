@@ -38,7 +38,7 @@ You can run `omada-duckdns-updater` on Linux (systemd or Docker), on Windows (na
    ```bash
    sudo dpkg -i omada-duckdns-updater_*.deb
    ```
-   *(This automatically installs the binary to `/opt`, creates the systemd service, and starts it in the background).*
+   *(This automatically installs the binary to `/opt`, creates the systemd service, and starts or restarts it in the background — including on upgrades via `dpkg -i`).*
 
 ### Method 2: Arch Linux Package (Recommended for Arch/Manjaro)
 
@@ -50,7 +50,8 @@ A `PKGBUILD` is provided to seamlessly integrate with Arch Linux.
    cd omada-duckdns-updater
    makepkg -si
    ```
-2. **Enable and Start:**
+   *(The install hook enables the service on first install and restarts it on upgrades when enabled or already running.)*
+2. **Enable and Start** *(only if you installed without `-i` or disabled the unit manually)*:
    ```bash
    sudo systemctl enable --now omada-duckdns-updater.service
    ```
@@ -172,7 +173,7 @@ Pre-built Windows zip archives are published on GitHub Releases for both archite
    Set-ExecutionPolicy -Scope Process Bypass
    .\install-windows.ps1
    ```
-   This copies the binary to `C:\Program Files\omada-duckdns-updater\`, creates `%ProgramData%\omada-duckdns-updater\` for config/logs, opens inbound TCP **5381** on Domain/Private (Public only if confirmed or `-AllowPublicFirewall`), and installs/starts the `OmadaDuckDNSUpdater` service.
+   This copies the binary to `C:\Program Files\omada-duckdns-updater\`, creates `%ProgramData%\omada-duckdns-updater\` for config/logs, opens inbound TCP **5381** on Domain/Private (Public only if confirmed or `-AllowPublicFirewall`), and installs/starts the `OmadaDuckDNSUpdater` service. Re-run the script when upgrading to replace the binary and restart the service.
 3. **Uninstall:**
    ```powershell
    .\uninstall-windows.ps1
