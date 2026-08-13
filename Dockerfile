@@ -7,8 +7,9 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the source code
+# Copy the source code (icons/ required for go:embed in web.go)
 COPY *.go ./
+COPY icons/ ./icons/
 
 # Accept VERSION build arg
 ARG VERSION=dev
