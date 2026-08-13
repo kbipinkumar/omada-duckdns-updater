@@ -4,6 +4,7 @@ ddns-updater
 
 # Configuration files with sensitive data
 updater.conf
+updater.log
 .env
 .encryption-key
 

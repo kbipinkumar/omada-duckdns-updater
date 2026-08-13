@@ -560,15 +560,9 @@ const uiTemplate = `
             method: 'POST',
             body: formData,
             headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-        }).then(() => {
-            return fetch('/run', {method: 'POST'});
         })
     	.then(r => {
             if (!r.ok) return r.text().then(t => { throw new Error(t); });
-            return r.text();
-        })
-    	.then(msg => {
-            alert(msg);
             window.location.reload();
         })
     	.catch(e => alert(e.message));
@@ -629,6 +623,7 @@ const uiTemplate = `
 
             const oldInput = document.getElementById('OmadaSiteID');
             oldInput.parentNode.replaceChild(select, oldInput);
+            resetVerifyState();
             
             btn.innerText = "Refresh";
             btn.disabled = false;
@@ -732,10 +727,42 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	duckDNSDomain := strings.Join(domains, ",")
 
 	newWebPassword := r.FormValue("WebPassword")
-	oldConfig, _ := loadConfig()
+	oldConfig, loadErr := loadConfig()
+	if loadErr != nil {
+		logError("web ui save failed to load existing configuration: %v", loadErr)
+		data := PageData{
+			Config: &Config{
+				OmadaURL:       strings.TrimSpace(r.FormValue("OmadaURL")),
+				OmadaClientID:  strings.TrimSpace(r.FormValue("OmadaClientID")),
+				OmadaOmadacID:  strings.TrimSpace(r.FormValue("OmadaOmadacID")),
+				OmadaSiteID:    strings.TrimSpace(r.FormValue("OmadaSiteID")),
+				DuckDNSDomain:  duckDNSDomain,
+				UpdateIPv4:     r.FormValue("UpdateIPv4") == "on",
+				UpdateIPv6:     r.FormValue("UpdateIPv6") == "on",
+				UpdateInterval: interval,
+				WebUsername:    r.FormValue("WebUsername"),
+			},
+			State:      snapshotState(),
+			Version:    version,
+			IsFirstRun: true,
+			Message:    "Failed to load existing configuration: " + loadErr.Error(),
+			Error:      true,
+		}
+		tmpl.Execute(w, data)
+		return
+	}
+
 	finalWebPassword := ""
+	finalClientSecret := strings.TrimSpace(r.FormValue("OmadaClientSecret"))
+	finalDuckDNSToken := strings.TrimSpace(r.FormValue("DuckDNSToken"))
 	if oldConfig != nil {
 		finalWebPassword = oldConfig.WebPassword
+		if finalClientSecret == "" {
+			finalClientSecret = oldConfig.OmadaClientSecret
+		}
+		if finalDuckDNSToken == "" {
+			finalDuckDNSToken = oldConfig.DuckDNSToken
+		}
 	}
 	if newWebPassword != "" {
 		if hashed, err := hashPassword(newWebPassword); err == nil {
@@ -744,12 +771,12 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config := &Config{
-		OmadaURL:          r.FormValue("OmadaURL"),
-		OmadaClientID:     r.FormValue("OmadaClientID"),
-		OmadaClientSecret: r.FormValue("OmadaClientSecret"),
-		OmadaOmadacID:     r.FormValue("OmadaOmadacID"),
-		OmadaSiteID:       r.FormValue("OmadaSiteID"),
-		DuckDNSToken:      r.FormValue("DuckDNSToken"),
+		OmadaURL:          strings.TrimSpace(r.FormValue("OmadaURL")),
+		OmadaClientID:     strings.TrimSpace(r.FormValue("OmadaClientID")),
+		OmadaClientSecret: finalClientSecret,
+		OmadaOmadacID:     strings.TrimSpace(r.FormValue("OmadaOmadacID")),
+		OmadaSiteID:       strings.TrimSpace(r.FormValue("OmadaSiteID")),
+		DuckDNSToken:      finalDuckDNSToken,
 		DuckDNSDomain:     duckDNSDomain,
 		UpdateIPv4:        r.FormValue("UpdateIPv4") == "on",
 		UpdateIPv6:        r.FormValue("UpdateIPv6") == "on",
@@ -757,6 +784,8 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 		WebUsername:       r.FormValue("WebUsername"),
 		WebPassword:       finalWebPassword,
 	}
+
+	logInfo("web ui save requested (%s)", describeConfig(config))
 
 	err := saveConfig(config)
 
@@ -770,9 +799,17 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		data.Message = "Failed to save configuration: " + err.Error()
 		data.Error = true
+		logError("web ui save failed: %v (%s)", err, describeConfig(config))
 	} else {
 		data.Message = "Configuration saved successfully! It will be used on the next run."
 		data.Error = false
+		logInfo("web ui save successful (%s)", describeConfig(config))
+		if configIsComplete(config) {
+			if runErr := runUpdate(true); runErr != nil {
+				logError("post-save update failed: %v", runErr)
+			}
+			data.State = snapshotState()
+		}
 	}
 	
 	tmpl.Execute(w, data)
@@ -784,12 +821,15 @@ func handleRun(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	logInfo("web ui run now requested")
 	err := runUpdate(true)
 	if err != nil {
+		logError("web ui run now failed: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Error running update: %v", err)
 		return
 	}
+	logInfo("web ui run now successful")
 	fmt.Fprintf(w, "Update successful!")
 }
 

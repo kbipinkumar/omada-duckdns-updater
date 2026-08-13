@@ -72,30 +72,20 @@ loop:
 	return false, errno
 }
 
-// setupServiceLogging directs log output to a file and the Windows event log.
+// setupServiceLogging directs log output to updater.log and the Windows event log.
 func setupServiceLogging() (io.Closer, error) {
 	var closers []io.Closer
-	var writers []io.Writer
-
-	if err := ensureDataDir(); err == nil {
-		logPath := filepath.Join(getDataDir(), "updater.log")
-		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-		if err == nil {
-			closers = append(closers, f)
-			writers = append(writers, f)
-		} else {
-			log.Printf("Warning: could not open log file %s: %v", logPath, err)
-		}
-	}
+	var extra []io.Writer
 
 	elog, err := eventlog.Open(windowsServiceName)
 	if err == nil {
+		extra = append(extra, &eventLogWriter{elog: elog})
 		closers = append(closers, elog)
-		writers = append(writers, &eventLogWriter{elog: elog})
 	}
 
-	if len(writers) > 0 {
-		log.SetOutput(io.MultiWriter(writers...))
+	fileCloser := initLogging(extra...)
+	if fileCloser != nil {
+		closers = append(closers, fileCloser)
 	}
 
 	return multiCloser(closers), nil

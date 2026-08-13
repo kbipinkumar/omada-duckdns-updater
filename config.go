@@ -63,6 +63,32 @@ func isFirstRun(config *Config) bool {
 	return !configFileExists() || config.OmadaURL == ""
 }
 
+// configIsComplete reports whether all fields required for an update cycle are set.
+func configIsComplete(config *Config) bool {
+	return len(missingConfigFields(config)) == 0
+}
+
+// missingConfigFields returns human-readable names of required config fields that are unset.
+func missingConfigFields(config *Config) []string {
+	if config == nil {
+		return []string{"configuration"}
+	}
+	var missing []string
+	if config.OmadaURL == "" {
+		missing = append(missing, "Omada Controller URL")
+	}
+	if config.OmadaSiteID == "" {
+		missing = append(missing, "Omada Site ID")
+	}
+	if config.DuckDNSToken == "" {
+		missing = append(missing, "DuckDNS Token")
+	}
+	if config.DuckDNSDomain == "" {
+		missing = append(missing, "DuckDNS Domain")
+	}
+	return missing
+}
+
 // ensureDataDir creates the data directory when one is configured.
 func ensureDataDir() error {
 	dir := getDataDir()
@@ -149,7 +175,9 @@ func loadConfig() (*Config, error) {
 	applyEnvOverrides(config)
 
 	if needsMigration {
+		logInfo("migrating configuration secrets to current encryption format (%s)", getConfigFilePath())
 		if err := saveConfig(config); err != nil {
+			logError("configuration migration failed: %v", err)
 			return config, err
 		}
 	}
@@ -245,7 +273,12 @@ func saveConfig(config *Config) error {
 		return err
 	}
 
-	return os.Rename(tempPath, configPath)
+	if err := os.Rename(tempPath, configPath); err != nil {
+		return err
+	}
+
+	logInfo("configuration saved to %s (%s)", configPath, describeConfig(config))
+	return nil
 }
 
 // DuckDNSDomains returns up to five configured DuckDNS domain names for the UI.
