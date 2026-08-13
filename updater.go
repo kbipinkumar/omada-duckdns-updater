@@ -304,10 +304,10 @@ func runUpdate(force bool) error {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 
-	if config.OmadaURL == "" || config.DuckDNSToken == "" || config.OmadaSiteID == "" {
+	if missing := missingConfigFields(config); len(missing) > 0 {
 		globalState.LastStatus = "Error"
-		globalState.LastError = "Configuration is missing required fields (Check Site ID)"
-		return fmt.Errorf("configuration is missing required fields")
+		globalState.LastError = "Configuration is missing required fields: " + strings.Join(missing, ", ")
+		return fmt.Errorf("configuration is missing required fields: %s", strings.Join(missing, ", "))
 	}
 
 	token, err := getOmadaToken(config)

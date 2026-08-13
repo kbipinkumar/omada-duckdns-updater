@@ -42,8 +42,8 @@ func runApp(ctx context.Context) error {
 
 	log.Println("Starting background updater...")
 
-	// Initial run if config exists
-	if config, err := loadConfig(); err == nil && config.OmadaURL != "" {
+	// Initial run when configuration is complete.
+	if config, err := loadConfig(); err == nil && configIsComplete(config) {
 		log.Println("Running initial update...")
 		if err := runUpdate(true); err != nil {
 			log.Printf("Initial update failed: %v", err)
@@ -73,13 +73,19 @@ func runApp(ctx context.Context) error {
 			lastRun := globalState.LastRunTime
 			globalState.RUnlock()
 
-			if time.Since(lastRun) >= time.Duration(interval)*time.Minute {
-				log.Println("Timer triggered, running update...")
-				if err := runUpdate(false); err != nil {
-					log.Printf("Update failed: %v", err)
-				} else {
-					log.Println("Update successful.")
-				}
+			if config == nil || !configIsComplete(config) {
+				continue
+			}
+
+			if !lastRun.IsZero() && time.Since(lastRun) < time.Duration(interval)*time.Minute {
+				continue
+			}
+
+			log.Println("Timer triggered, running update...")
+			if err := runUpdate(false); err != nil {
+				log.Printf("Update failed: %v", err)
+			} else {
+				log.Println("Update successful.")
 			}
 		}
 	}

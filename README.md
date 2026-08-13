@@ -249,7 +249,7 @@ docker run -d \
 ## Troubleshooting
 
 - **Error: Gateway not found**: Ensure you have selected the correct Site ID in the dropdown. The gateway must be adopted in the selected site.
-- **Error: Configuration is missing required fields**: Make sure you have clicked "Save Configuration" before attempting a run.
+- **Error: Configuration is missing required fields**: Make sure you have clicked "Save Configuration" before attempting a run. The status message lists which values are still missing (Omada Site ID, DuckDNS Token, etc.).
 - **Forgotten Web UI Password**: Edit `updater.conf` and clear the `WEB_USERNAME` and `WEB_PASSWORD` lines, then restart the service or container.
   - Linux systemd: edit the file next to the binary (or under `$DATA_DIR`) and `systemctl restart` / `systemctl --user restart` the unit.
   - Docker: edit the file in the mounted data volume and restart the container.

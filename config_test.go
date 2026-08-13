@@ -83,6 +83,34 @@ func TestLoadSaveConfig(t *testing.T) {
 	}
 }
 
+// TestConfigIsComplete verifies required-field detection for update cycles.
+func TestConfigIsComplete(t *testing.T) {
+	complete := &Config{
+		OmadaURL:      "https://192.168.1.1:8043",
+		OmadaSiteID:   "site-id",
+		DuckDNSToken:  "duck-token",
+		DuckDNSDomain: "example.duckdns.org",
+	}
+	if !configIsComplete(complete) {
+		t.Fatalf("expected complete config to be ready for updates")
+	}
+
+	missingSite := *complete
+	missingSite.OmadaSiteID = ""
+	if configIsComplete(&missingSite) {
+		t.Fatalf("expected config without site ID to be incomplete")
+	}
+	if got := missingConfigFields(&missingSite); len(got) != 1 || got[0] != "Omada Site ID" {
+		t.Fatalf("missingConfigFields() = %#v, want [Omada Site ID]", got)
+	}
+
+	missingToken := *complete
+	missingToken.DuckDNSToken = ""
+	if got := missingConfigFields(&missingToken); len(got) != 1 || got[0] != "DuckDNS Token" {
+		t.Fatalf("missingConfigFields() = %#v, want [DuckDNS Token]", got)
+	}
+}
+
 // TestDuckDNSDomains verifies comma-separated domains are split into five slots.
 func TestDuckDNSDomains(t *testing.T) {
 	cfg := &Config{DuckDNSDomain: "a.example.com,b.example.com"}

@@ -629,6 +629,7 @@ const uiTemplate = `
 
             const oldInput = document.getElementById('OmadaSiteID');
             oldInput.parentNode.replaceChild(select, oldInput);
+            resetVerifyState();
             
             btn.innerText = "Refresh";
             btn.disabled = false;
@@ -734,8 +735,16 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	newWebPassword := r.FormValue("WebPassword")
 	oldConfig, _ := loadConfig()
 	finalWebPassword := ""
+	finalClientSecret := strings.TrimSpace(r.FormValue("OmadaClientSecret"))
+	finalDuckDNSToken := strings.TrimSpace(r.FormValue("DuckDNSToken"))
 	if oldConfig != nil {
 		finalWebPassword = oldConfig.WebPassword
+		if finalClientSecret == "" {
+			finalClientSecret = oldConfig.OmadaClientSecret
+		}
+		if finalDuckDNSToken == "" {
+			finalDuckDNSToken = oldConfig.DuckDNSToken
+		}
 	}
 	if newWebPassword != "" {
 		if hashed, err := hashPassword(newWebPassword); err == nil {
@@ -744,12 +753,12 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config := &Config{
-		OmadaURL:          r.FormValue("OmadaURL"),
-		OmadaClientID:     r.FormValue("OmadaClientID"),
-		OmadaClientSecret: r.FormValue("OmadaClientSecret"),
-		OmadaOmadacID:     r.FormValue("OmadaOmadacID"),
-		OmadaSiteID:       r.FormValue("OmadaSiteID"),
-		DuckDNSToken:      r.FormValue("DuckDNSToken"),
+		OmadaURL:          strings.TrimSpace(r.FormValue("OmadaURL")),
+		OmadaClientID:     strings.TrimSpace(r.FormValue("OmadaClientID")),
+		OmadaClientSecret: finalClientSecret,
+		OmadaOmadacID:     strings.TrimSpace(r.FormValue("OmadaOmadacID")),
+		OmadaSiteID:       strings.TrimSpace(r.FormValue("OmadaSiteID")),
+		DuckDNSToken:      finalDuckDNSToken,
 		DuckDNSDomain:     duckDNSDomain,
 		UpdateIPv4:        r.FormValue("UpdateIPv4") == "on",
 		UpdateIPv6:        r.FormValue("UpdateIPv6") == "on",
@@ -773,6 +782,12 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data.Message = "Configuration saved successfully! It will be used on the next run."
 		data.Error = false
+		if configIsComplete(config) {
+			if runErr := runUpdate(true); runErr != nil {
+				log.Printf("Post-save update failed: %v", runErr)
+			}
+			data.State = snapshotState()
+		}
 	}
 	
 	tmpl.Execute(w, data)
