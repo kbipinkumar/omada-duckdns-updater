@@ -50,6 +50,24 @@ function Wait-ServiceStatusStopped {
     }
 }
 
+function Wait-ServiceStatusRunning {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [int]$TimeoutSeconds = 30
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+        if ($svc -and $svc.Status -eq "Running") {
+            return
+        }
+        Start-Sleep -Milliseconds 300
+    }
+    $svc = Get-Service -Name $Name -ErrorAction SilentlyContinue
+    $status = if ($svc) { $svc.Status } else { "Missing" }
+    Write-Error "Timed out waiting for service '$Name' to reach Running (status: $status)."
+}
+
 function Wait-ServiceRemoved {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -96,6 +114,7 @@ if ($existing) {
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Service start failed with exit code $LASTEXITCODE"
     }
+    Wait-ServiceStatusRunning -Name $ServiceName
 
     Write-Host ""
     Write-Host "Upgrade complete."
@@ -146,6 +165,7 @@ Write-Host "Starting service..."
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Service start failed with exit code $LASTEXITCODE"
 }
+Wait-ServiceStatusRunning -Name $ServiceName
 
 Write-Host ""
 Write-Host "Installation complete."

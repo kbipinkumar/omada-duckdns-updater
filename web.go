@@ -60,6 +60,7 @@ const uiTemplate = `
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.25);
             width: 100%;
             max-width: 1100px;
+            box-sizing: border-box;
             border: 1px solid var(--border);
         }
 

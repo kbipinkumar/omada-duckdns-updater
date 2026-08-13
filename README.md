@@ -50,7 +50,7 @@ A `PKGBUILD` is provided to seamlessly integrate with Arch Linux.
    cd omada-duckdns-updater
    makepkg -si
    ```
-   *(The install hook enables and restarts the systemd service automatically, including on upgrades.)*
+   *(The install hook enables the service on first install and restarts it on upgrades when enabled or already running.)*
 2. **Enable and Start** *(only if you installed without `-i` or disabled the unit manually)*:
    ```bash
    sudo systemctl enable --now omada-duckdns-updater.service

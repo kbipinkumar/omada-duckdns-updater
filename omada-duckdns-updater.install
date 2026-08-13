@@ -9,10 +9,20 @@ post_install() {
 
 post_upgrade() {
   systemctl daemon-reload
-  systemctl try-restart omada-duckdns-updater.service
+  if systemctl is-enabled --quiet omada-duckdns-updater.service || systemctl is-active --quiet omada-duckdns-updater.service; then
+    systemctl restart omada-duckdns-updater.service
+  fi
   echo ""
-  echo "Omada DuckDNS Updater upgraded and service restarted."
+  if systemctl is-enabled --quiet omada-duckdns-updater.service || systemctl is-active --quiet omada-duckdns-updater.service; then
+    echo "Omada DuckDNS Updater upgraded and service restarted."
+  else
+    echo "Omada DuckDNS Updater upgraded (service left stopped because it is disabled)."
+  fi
   echo ""
+}
+
+pre_remove() {
+  systemctl disable --now omada-duckdns-updater.service || true
 }
 
 post_remove() {
