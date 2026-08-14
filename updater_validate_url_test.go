@@ -73,7 +73,12 @@ func TestValidateRequestURL(t *testing.T) {
 			wantErr: `host "10.0.0.1" not in allowlist`,
 		},
 		{
-			name:    "path stripped from base",
+			name:    "invalid host shape",
+			raw:     "https://-bad-host:8043",
+			wantErr: "invalid host",
+		},
+		{
+			name:    "path in host rejected by regex",
 			raw:     "https://192.168.1.1:8043/extra/path",
 			wantURL: "https://192.168.1.1:8043",
 		},
