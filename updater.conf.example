@@ -1,6 +1,10 @@
 # Omada SDN Controller URL (e.g., https://192.168.1.1:8043)
 OMADA_URL=https://<your-omada-controller-ip>:<port>
 
+# Optional: restrict OMADA_URL to specific hostnames/IPs (comma-separated).
+# When unset, any valid HTTPS host is accepted. Recommended for hardened deployments.
+# OMADA_ALLOWED_HOSTS=192.168.1.1,omada.local
+
 # Omada API Credentials (created in Omada Settings -> Global -> API)
 OMADA_CLIENT_ID=your-omada-client-id
 OMADA_CLIENT_SECRET=your-omada-client-secret

@@ -13,6 +13,7 @@ import (
 // Config holds Omada, DuckDNS, scheduling, and web UI settings loaded from updater.conf.
 type Config struct {
 	OmadaURL          string
+	AllowedOmadaHosts []string
 	OmadaClientID     string
 	OmadaClientSecret string
 	OmadaOmadacID     string
@@ -130,6 +131,8 @@ func loadConfig() (*Config, error) {
 		switch key {
 		case "OMADA_URL":
 			config.OmadaURL = val
+		case "OMADA_ALLOWED_HOSTS":
+			config.AllowedOmadaHosts = parseCommaList(val)
 		case "OMADA_CLIENT_ID":
 			config.OmadaClientID = val
 		case "OMADA_CLIENT_SECRET":
@@ -252,6 +255,9 @@ func saveConfig(config *Config) error {
 
 	writer := bufio.NewWriter(tempFile)
 	fmt.Fprintf(writer, "OMADA_URL=%s\n", config.OmadaURL)
+	if len(config.AllowedOmadaHosts) > 0 {
+		fmt.Fprintf(writer, "OMADA_ALLOWED_HOSTS=%s\n", strings.Join(config.AllowedOmadaHosts, ","))
+	}
 	fmt.Fprintf(writer, "OMADA_CLIENT_ID=%s\n", config.OmadaClientID)
 	fmt.Fprintf(writer, "OMADA_CLIENT_SECRET=%s\n", encryptedClientSecret)
 	fmt.Fprintf(writer, "OMADA_OMADAC_ID=%s\n", config.OmadaOmadacID)
@@ -279,6 +285,19 @@ func saveConfig(config *Config) error {
 
 	logInfo("configuration saved to %s (%s)", configPath, describeConfig(config))
 	return nil
+}
+
+// parseCommaList splits a comma-separated string into trimmed, non-empty values.
+func parseCommaList(raw string) []string {
+	parts := strings.Split(raw, ",")
+	var result []string
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
 }
 
 // DuckDNSDomains returns up to five configured DuckDNS domain names for the UI.
