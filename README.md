@@ -233,6 +233,7 @@ Before any outbound request to the Omada controller, `OMADA_URL` is validated:
 
 - **HTTPS required** — only `https://` URLs are accepted.
 - **No credentials in URL** — userinfo (e.g. `https://user:pass@host`) is rejected.
+- **Loopback blocked** — URLs resolving to loopback or unspecified addresses (e.g. `127.0.0.1`, `::1`) are rejected.
 - **Optional host allowlist** — set `OMADA_ALLOWED_HOSTS` in `updater.conf` to a comma-separated list of permitted hostnames or IPs (e.g. `192.168.1.1,omada.local`). When unset, any valid HTTPS host is accepted, which suits typical LAN controllers such as `https://192.168.1.1:8043`.
 
 Example for a private LAN controller:

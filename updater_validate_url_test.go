@@ -126,6 +126,11 @@ func TestOmadaBaseURL(t *testing.T) {
 	if _, err := omadaBaseURL(cfg); err == nil {
 		t.Fatal("omadaBaseURL() expected allowlist rejection")
 	}
+
+	cfg = &Config{OmadaURL: "https://127.0.0.1:8043"}
+	if _, err := omadaBaseURL(cfg); err == nil {
+		t.Fatal("omadaBaseURL() expected loopback rejection")
+	}
 }
 
 func TestResolveOmadaURL(t *testing.T) {

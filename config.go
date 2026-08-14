@@ -256,7 +256,9 @@ func saveConfig(config *Config) error {
 	writer := bufio.NewWriter(tempFile)
 	fmt.Fprintf(writer, "OMADA_URL=%s\n", config.OmadaURL)
 	if len(config.AllowedOmadaHosts) > 0 {
-		fmt.Fprintf(writer, "OMADA_ALLOWED_HOSTS=%s\n", strings.Join(config.AllowedOmadaHosts, ","))
+		if _, err := fmt.Fprintf(writer, "OMADA_ALLOWED_HOSTS=%s\n", strings.Join(config.AllowedOmadaHosts, ",")); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintf(writer, "OMADA_CLIENT_ID=%s\n", config.OmadaClientID)
 	fmt.Fprintf(writer, "OMADA_CLIENT_SECRET=%s\n", encryptedClientSecret)

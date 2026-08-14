@@ -202,7 +202,11 @@ func validateRequestURL(raw string, opts ...ValidateURLOption) (*url.URL, error)
 
 // omadaBaseURL validates config.OmadaURL before Omada OpenAPI requests.
 func omadaBaseURL(config *Config) (*url.URL, error) {
-	return validateRequestURL(config.OmadaURL, WithAllowlist(config.AllowedOmadaHosts))
+	return validateRequestURL(
+		config.OmadaURL,
+		WithBlockLoopback(true),
+		WithAllowlist(config.AllowedOmadaHosts),
+	)
 }
 
 // resolveOmadaURL joins a validated Omada base URL with a relative API path.
