@@ -15,6 +15,7 @@ func TestLoadSaveConfig(t *testing.T) {
 
 	cfg := &Config{
 		OmadaURL:          "https://192.168.1.1:8043",
+		AllowedOmadaHosts: []string{"192.168.1.1", "omada.local"},
 		OmadaClientID:     "client-id",
 		OmadaClientSecret: "client-secret",
 		OmadaOmadacID:     "omadac-id",
@@ -39,6 +40,14 @@ func TestLoadSaveConfig(t *testing.T) {
 
 	if loaded.OmadaURL != cfg.OmadaURL {
 		t.Fatalf("OmadaURL = %q, want %q", loaded.OmadaURL, cfg.OmadaURL)
+	}
+	if len(loaded.AllowedOmadaHosts) != len(cfg.AllowedOmadaHosts) {
+		t.Fatalf("AllowedOmadaHosts = %#v, want %#v", loaded.AllowedOmadaHosts, cfg.AllowedOmadaHosts)
+	}
+	for i, host := range cfg.AllowedOmadaHosts {
+		if loaded.AllowedOmadaHosts[i] != host {
+			t.Fatalf("AllowedOmadaHosts[%d] = %q, want %q", i, loaded.AllowedOmadaHosts[i], host)
+		}
 	}
 	if loaded.OmadaClientSecret != cfg.OmadaClientSecret {
 		t.Fatalf("OmadaClientSecret = %q, want %q", loaded.OmadaClientSecret, cfg.OmadaClientSecret)
@@ -71,6 +80,7 @@ func TestLoadSaveConfig(t *testing.T) {
 	for _, part := range []string{
 		"OMADA_CLIENT_SECRET=ENC:",
 		"DUCKDNS_TOKEN=ENC:",
+		"OMADA_ALLOWED_HOSTS=192.168.1.1,omada.local",
 	} {
 		if !strings.Contains(content, part) {
 			t.Fatalf("expected %q in config file, got:\n%s", part, content)

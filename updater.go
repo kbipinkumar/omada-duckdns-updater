@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -90,6 +91,17 @@ func isPublicIP(ipStr string) (bool, string) {
 	return true, ""
 }
 
+// omadaURLHostRe validates the Host field (hostname or IP with optional port).
+// A regex match on parsed.Host is a barrier guard recognized by CodeQL
+// go/request-forgery between operator-supplied OMADA_URL and net/http requests.
+var omadaURLHostRe = regexp.MustCompile(
+	`^(` +
+		`([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)(\.([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?))*` +
+		`|([0-9]{1,3}(\.[0-9]{1,3}){3})` +
+		`|(\[[0-9a-fA-F:.]+\])` +
+		`)(:[0-9]{1,5})?$`,
+)
+
 // createHTTPClient returns an HTTP client configured for local Omada controllers.
 func createHTTPClient() *http.Client {
 	// Skip TLS verify for Omada local connections
@@ -99,10 +111,125 @@ func createHTTPClient() *http.Client {
 	return &http.Client{Transport: tr}
 }
 
+type validateURLOpts struct {
+	requireHTTPS  bool
+	blockLoopback bool
+	allowlist     []string
+}
+
+// ValidateURLOption configures validateRequestURL behavior.
+type ValidateURLOption func(*validateURLOpts)
+
+// WithRequireHTTPS requires the URL scheme to be https when true.
+func WithRequireHTTPS(v bool) ValidateURLOption {
+	return func(o *validateURLOpts) {
+		o.requireHTTPS = v
+	}
+}
+
+// WithBlockLoopback rejects hosts that resolve to loopback or unspecified addresses.
+func WithBlockLoopback(v bool) ValidateURLOption {
+	return func(o *validateURLOpts) {
+		o.blockLoopback = v
+	}
+}
+
+// WithAllowlist restricts the URL host to the given hostnames or IPs.
+func WithAllowlist(hosts []string) ValidateURLOption {
+	return func(o *validateURLOpts) {
+		o.allowlist = hosts
+	}
+}
+
+// validateRequestURL parses and validates a request URL before outbound HTTP calls.
+func validateRequestURL(raw string, opts ...ValidateURLOption) (*url.URL, error) {
+	options := validateURLOpts{
+		requireHTTPS:  true,
+		blockLoopback: false,
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return nil, fmt.Errorf("URL must include scheme and host")
+	}
+	if u.User != nil {
+		return nil, fmt.Errorf("URL must not contain user info")
+	}
+	if options.requireHTTPS && u.Scheme != "https" {
+		return nil, fmt.Errorf("only https scheme allowed")
+	}
+
+	if !omadaURLHostRe.MatchString(u.Host) {
+		return nil, fmt.Errorf("invalid host %q", u.Host)
+	}
+
+	host := u.Hostname()
+	if len(options.allowlist) > 0 {
+		matched := false
+		for _, allowed := range options.allowlist {
+			if strings.EqualFold(allowed, host) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return nil, fmt.Errorf("host %q not in allowlist", host)
+		}
+	}
+
+	if options.blockLoopback {
+		ips, err := net.LookupIP(host)
+		if err == nil {
+			for _, ip := range ips {
+				if ip.IsLoopback() || ip.IsUnspecified() {
+					return nil, fmt.Errorf("resolved host %s -> %s is not allowed", host, ip.String())
+				}
+			}
+		}
+	}
+
+	return &url.URL{
+		Scheme: u.Scheme,
+		Host:   u.Host,
+	}, nil
+}
+
+// omadaBaseURL validates config.OmadaURL before Omada OpenAPI requests.
+func omadaBaseURL(config *Config) (*url.URL, error) {
+	return validateRequestURL(
+		config.OmadaURL,
+		WithBlockLoopback(true),
+		WithAllowlist(config.AllowedOmadaHosts),
+	)
+}
+
+// resolveOmadaURL joins a validated Omada base URL with a relative API path.
+func resolveOmadaURL(base *url.URL, path string) (string, error) {
+	ref, err := url.Parse(path)
+	if err != nil {
+		return "", fmt.Errorf("invalid API path: %w", err)
+	}
+	return base.ResolveReference(ref).String(), nil
+}
+
 // getOmadaToken exchanges client credentials for an Omada OpenAPI access token.
 func getOmadaToken(config *Config) (string, error) {
+	base, err := omadaBaseURL(config)
+	if err != nil {
+		return "", fmt.Errorf("omada URL rejected: %w", err)
+	}
+
 	client := createHTTPClient()
-	u := fmt.Sprintf("%s/openapi/authorize/token?grant_type=client_credentials", config.OmadaURL)
+	u, err := resolveOmadaURL(base, "/openapi/authorize/token?grant_type=client_credentials")
+	if err != nil {
+		return "", err
+	}
 
 	payload := map[string]string{
 		"omadacId":      config.OmadaOmadacID,
@@ -140,11 +267,22 @@ func getOmadaToken(config *Config) (string, error) {
 
 // getGatewayWAN fetches the primary WAN IPv4 and IPv6 addresses from Omada.
 func getGatewayWAN(config *Config, token string) (ipv4, ipv6 string, err error) {
+	base, err := omadaBaseURL(config)
+	if err != nil {
+		return "", "", fmt.Errorf("omada URL rejected: %w", err)
+	}
+
 	client := createHTTPClient()
 
 	// 1. Get devices to find Gateway MAC
-	devicesURL := fmt.Sprintf("%s/openapi/v1/%s/sites/%s/devices?page=1&pageSize=10", config.OmadaURL, config.OmadaOmadacID, config.OmadaSiteID)
-	req, _ := http.NewRequest("GET", devicesURL, nil)
+	devicesURL, err := resolveOmadaURL(base, fmt.Sprintf("/openapi/v1/%s/sites/%s/devices?page=1&pageSize=10", config.OmadaOmadacID, config.OmadaSiteID))
+	if err != nil {
+		return "", "", err
+	}
+	req, err := http.NewRequest("GET", devicesURL, nil)
+	if err != nil {
+		return "", "", err
+	}
 	req.Header.Set("Authorization", "AccessToken="+token)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -181,8 +319,14 @@ func getGatewayWAN(config *Config, token string) (ipv4, ipv6 string, err error) 
 	}
 
 	// 2. Get WAN status
-	wanURL := fmt.Sprintf("%s/openapi/v1/%s/sites/%s/gateways/%s/wan-status", config.OmadaURL, config.OmadaOmadacID, config.OmadaSiteID, gatewayMac)
-	req, _ = http.NewRequest("GET", wanURL, nil)
+	wanURL, err := resolveOmadaURL(base, fmt.Sprintf("/openapi/v1/%s/sites/%s/gateways/%s/wan-status", config.OmadaOmadacID, config.OmadaSiteID, gatewayMac))
+	if err != nil {
+		return "", "", err
+	}
+	req, err = http.NewRequest("GET", wanURL, nil)
+	if err != nil {
+		return "", "", err
+	}
 	req.Header.Set("Authorization", "AccessToken="+token)
 
 	resp2, err := client.Do(req)
@@ -261,9 +405,20 @@ type Site struct {
 
 // fetchSites retrieves available Omada sites for the configured controller.
 func fetchSites(config *Config, token string) ([]Site, error) {
+	base, err := omadaBaseURL(config)
+	if err != nil {
+		return nil, fmt.Errorf("omada URL rejected: %w", err)
+	}
+
 	client := createHTTPClient()
-	u := fmt.Sprintf("%s/openapi/v1/%s/sites?page=1&pageSize=100", config.OmadaURL, config.OmadaOmadacID)
-	req, _ := http.NewRequest("GET", u, nil)
+	u, err := resolveOmadaURL(base, fmt.Sprintf("/openapi/v1/%s/sites?page=1&pageSize=100", config.OmadaOmadacID))
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("Authorization", "AccessToken="+token)
 	
 	resp, err := client.Do(req)

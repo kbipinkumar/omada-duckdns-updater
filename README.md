@@ -227,6 +227,22 @@ Check the **Status Dashboard** at the top of the page to verify that the IPs wer
 
 ## Security Notes
 
+### Omada URL security
+
+Before any outbound request to the Omada controller, `OMADA_URL` is validated:
+
+- **HTTPS required** — only `https://` URLs are accepted.
+- **No credentials in URL** — userinfo (e.g. `https://user:pass@host`) is rejected.
+- **Loopback blocked** — URLs resolving to loopback or unspecified addresses (e.g. `127.0.0.1`, `::1`) are rejected.
+- **Optional host allowlist** — set `OMADA_ALLOWED_HOSTS` in `updater.conf` to a comma-separated list of permitted hostnames or IPs (e.g. `192.168.1.1,omada.local`). When unset, any valid HTTPS host is accepted, which suits typical LAN controllers such as `https://192.168.1.1:8043`.
+
+Example for a private LAN controller:
+
+```ini
+OMADA_URL=https://192.168.1.1:8043
+OMADA_ALLOWED_HOSTS=192.168.1.1
+```
+
 - **Web UI passwords** are stored as bcrypt hashes in `updater.conf`. If you upgraded from an older release that used salted SHA-256, clear `WEB_PASSWORD` in `updater.conf` and set a new password via the Web UI (see Troubleshooting).
 - **API tokens** (`OMADA_CLIENT_SECRET`, `DUCKDNS_TOKEN`) are encrypted at rest using AES-GCM with a per-install key stored in `.encryption-key` inside the data directory. Legacy configs encrypted with the old built-in key are migrated automatically on load.
 - **Config file permissions**: `updater.conf` and `.encryption-key` are written with mode `0600` on Unix.
